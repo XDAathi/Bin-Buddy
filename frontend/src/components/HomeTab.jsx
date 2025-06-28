@@ -1,10 +1,134 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, Loader2, CheckCircle, Heart, TreePine } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix default marker icons for Leaflet
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCAyNSA0MSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyLjUgMEMxOS40MDM2IDAgMjUgNS41OTY0NCAyNSAxMi41QzI1IDE5LjQwMzYgMTkuNDAzNiAyNSAxMi41IDI1QzUuNTk2NDQgMjUgMCAxOS40MDM2IDAgMTIuNUMwIDUuNTk2NDQgNS41OTY0NCAwIDEyLjUgMFoiIGZpbGw9IiMzQjgyRjYiLz4KPHBhdGggZD0iTTEyLjUgNDBMMTIuNSAyNSIgc3Ryb2tlPSIjMzk4MkY2IiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+',
+  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCAyNSA0MSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyLjUgMEMxOS40MDM2IDAgMjUgNS41OTY0NCAyNSAxMi41QzI1IDE5LjQwMzYgMTkuNDAzNiAyNSAxMi41IDI1QzUuNTk2NDQgMjUgMCAxOS40MDM2IDAgMTIuNUMwIDUuNTk2NDQgNS41OTY0NCAwIDEyLjUgMFoiIGZpbGw9IiMzQjgyRjYiLz4KPHBhdGggZD0iTTEyLjUgNDBMMTIuNSAyNSIgc3Ryb2tlPSIjMzk4MkY2IiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+',
+  shadowUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDEiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCA0MSA0MSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGVsbGlwc2UgY3g9IjIwLjUiIGN5PSIyMC41IiByeD0iMjAuNSIgcnk9IjIwLjUiIGZpbGw9IiMwMDAwMDAiIGZpbGwtb3BhY2l0eT0iMC4yIi8+Cjwvc3ZnPg==',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+// Create custom marker icons
+const createCustomIcon = (color) => {
+  return L.divIcon({
+    html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    popupAnchor: [0, -10],
+    className: 'custom-marker'
+  });
+};
+
+const userIcon = L.divIcon({
+  html: `<div style="background-color: #3B82F6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+  className: 'user-marker'
+});
+
+const MapComponent = ({ userLocation, locations }) => {
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+
+  useEffect(() => {
+    if (!mapRef.current || !userLocation) return;
+
+    // Initialize map
+    mapInstanceRef.current = L.map(mapRef.current, {
+      attributionControl: false
+    }).setView([userLocation.lat, userLocation.lon], 13);
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(mapInstanceRef.current);
+
+    // Add user marker
+    L.marker([userLocation.lat, userLocation.lon], { icon: userIcon })
+      .addTo(mapInstanceRef.current)
+      .bindPopup('You are here')
+      .openPopup();
+
+    // Add location markers
+    locations.forEach((location) => {
+      const color = location.type === 'donate' ? '#10B981' : 
+                   location.type === 'dropoff' ? '#F59E0B' : '#EF4444';
+      
+      L.marker([location.lat, location.lon], { icon: createCustomIcon(color) })
+        .addTo(mapInstanceRef.current)
+        .bindPopup(`
+          <div style="text-align: center; padding: 4px;">
+            <strong>${location.name}</strong><br>
+            <small>${location.distance_km}km away</small><br>
+            <small style="color: ${color};">${location.type}</small>
+          </div>
+        `);
+    });
+
+    // Fit map to show all markers
+    if (locations.length > 0) {
+      const group = new L.featureGroup([
+        L.marker([userLocation.lat, userLocation.lon]),
+        ...locations.map(loc => L.marker([loc.lat, loc.lon]))
+      ]);
+      mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1));
+    }
+
+    // Cleanup function
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [userLocation, locations]);
+
+  return (
+    <div className="mt-4">
+      <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+        Location Overview
+      </h5>
+      <div 
+        ref={mapRef} 
+        className="h-48 rounded-lg border border-gray-200 dark:border-gray-700"
+        style={{ height: '200px' }}
+      />
+      
+      {/* Legend */}
+      <div className="flex justify-center space-x-4 mt-3 text-xs">
+        <div className="flex items-center space-x-1">
+          <div className="w-3 h-3 bg-blue-500 rounded-full border border-white"></div>
+          <span className="text-gray-700 dark:text-gray-300">You</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <div className="w-3 h-3 bg-green-500 rounded-full border border-white"></div>
+          <span className="text-gray-700 dark:text-gray-300">Donate</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <div className="w-3 h-3 bg-orange-500 rounded-full border border-white"></div>
+          <span className="text-gray-700 dark:text-gray-300">Drop-off</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <div className="w-3 h-3 bg-red-500 rounded-full border border-white"></div>
+          <span className="text-gray-700 dark:text-gray-300">Dispose</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const HomeTab = ({ onClassificationComplete, user }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
@@ -25,7 +149,7 @@ const HomeTab = ({ onClassificationComplete, user }) => {
     setIsAnalyzing(true);
     try {
       // Get user location
-      const userLocation = await new Promise((resolve) => {
+      const currentLocation = await new Promise((resolve) => {
         navigator.geolocation.getCurrentPosition(
           (position) => {
             resolve({
@@ -36,6 +160,8 @@ const HomeTab = ({ onClassificationComplete, user }) => {
           () => resolve({ lat: 40.7128, lon: -74.0060 }) // Default to NYC
         );
       });
+      
+      setUserLocation(currentLocation);
 
       // Convert image to base64 for API
       const imageDataUrl = selectedImage.preview;
@@ -48,8 +174,8 @@ const HomeTab = ({ onClassificationComplete, user }) => {
         },
         body: JSON.stringify({
           image: imageDataUrl,
-          lat: userLocation.lat,
-          lon: userLocation.lon
+          lat: currentLocation.lat,
+          lon: currentLocation.lon
         })
       });
 
@@ -201,6 +327,60 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                           ))}
                         </ul>
                       </div>
+
+                      {/* Nearby Locations */}
+                      {result.suggestions && result.suggestions.length > 0 ? (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center space-x-2">
+                            <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                            </svg>
+                            <span>Nearby Disposal Locations</span>
+                          </h4>
+                          <div className="space-y-3">
+                            {result.suggestions.slice(0, 3).map((location, index) => (
+                              <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg">
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-900 dark:text-white text-sm">
+                                    {location.name}
+                                  </p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                                    {location.distance_km}km away • {location.type}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => window.open(`https://maps.google.com/search/${location.name}/@${location.lat},${location.lon},15z`, '_blank')}
+                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded bg-blue-100 hover:bg-blue-200 transition-colors"
+                                >
+                                  View Map
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Interactive Map */}
+                          {userLocation && (
+                            <div className="mt-4 p-4 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                              <MapComponent 
+                                userLocation={userLocation}
+                                locations={result.suggestions.slice(0, 5)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center space-x-2">
+                            <svg className="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                            </svg>
+                            <span>Location Services Unavailable</span>
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Please search online for "{result.location_query}" in your area.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                   

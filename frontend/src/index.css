@@ -21,3 +21,40 @@
     @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-6;
   }
 }
+
+/* Leaflet map styling */
+.leaflet-container {
+  background: #f5f5f5;
+  border-radius: 0.5rem;
+}
+
+.dark .leaflet-container {
+  background: #374151;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 0.375rem;
+}
+
+.leaflet-popup-tip {
+  background: white;
+}
+
+.custom-marker {
+  border: none !important;
+  background: transparent !important;
+}
+
+.user-marker {
+  border: none !important;
+  background: transparent !important;
+}
+
+/* Ensure map tiles load properly */
+.leaflet-tile-pane {
+  filter: brightness(1);
+}
+
+.dark .leaflet-tile-pane {
+  filter: brightness(0.8) contrast(1.2);
+}
