@@ -47,7 +47,7 @@ def create_dynamic_prompt():
     
     return f"""Analyze this waste item image and create a comprehensive classification. Return ONLY a JSON object:
 {{
-    "main_category": "broad category (recyclable/organic/electronic/textile/furniture/hazardous/general)",
+    "main_category": "broad category (recyclable/organic/electronic/textile/furniture/hazardous/garbage)",
     "specific_category": "very specific item type (e.g. plastic_water_bottle, iphone_smartphone, leather_boots, etc.)",
     "display_name": "Human readable name (e.g. 'Plastic Water Bottle', 'iPhone Smartphone')",
     "estimated_weight_kg": number,
@@ -165,9 +165,12 @@ def calculate_co2_savings(co2_rate, weight):
 def find_nearby_locations(lat, lon, location_query):
     """Find nearby disposal locations based on dynamic query"""
     
+    print(f"🔍 Searching for locations: '{location_query}' at {lat}, {lon}")
+    
     # Handle "nearest_X" format queries
     if location_query.startswith('nearest_'):
         simple_type = location_query.replace('nearest_', '').replace('_', ' ')
+        print(f"📍 Using simple nearest location for: {simple_type}")
         return [{
             "type": "dropoff",
             "name": f"Nearest {simple_type}",
@@ -178,54 +181,88 @@ def find_nearby_locations(lat, lon, location_query):
     
     # For specific queries, search for actual locations
     try:
-        # Search using Nominatim
-        url = "https://nominatim.openstreetmap.org/search"
-        params = {
-            'q': location_query,
-            'format': 'jsonv2',
-            'lat': lat,
-            'lon': lon,
-            'limit': 10,
-            'bounded': 1,
-            'viewbox': f"{lon-0.2},{lat-0.2},{lon+0.2},{lat+0.2}"
-        }
+        # Try multiple search approaches
+        search_terms = [location_query]
         
-        headers = {'User-Agent': 'BinBuddy/1.0'}
-        response = requests.get(url, params=params, headers=headers, timeout=5)
+        # Add simpler, more generic search terms
+        if 'electronic' in location_query.lower() or 'e-waste' in location_query.lower():
+            search_terms.extend(['electronics recycling', 'e-waste center', 'computer recycling'])
+        elif 'recycling' in location_query.lower():
+            search_terms.extend(['recycling center', 'waste management', 'recycling facility'])
+        elif 'donation' in location_query.lower() or 'charity' in location_query.lower():
+            search_terms.extend(['donation center', 'thrift store', 'charity shop'])
+        else:
+            search_terms.extend(['waste management', 'recycling center', 'dump'])
         
-        if response.status_code == 200:
-            results = response.json()
-            suggestions = []
+        # Try each search term until we get results
+        for search_term in search_terms:
+            print(f"🔍 Trying search term: '{search_term}'")
             
-            for result in results:
-                result_lat = float(result['lat'])
-                result_lon = float(result['lon'])
-                distance = calculate_distance(lat, lon, result_lat, result_lon)
-                
-                # Determine type based on query content
-                suggestion_type = "dropoff"
-                if any(word in location_query.lower() for word in ['donation', 'charity', 'thrift']):
-                    suggestion_type = "donate"
-                elif any(word in location_query.lower() for word in ['dump', 'landfill', 'disposal']):
-                    suggestion_type = "dispose"
-                
-                suggestions.append({
-                    "type": suggestion_type,
-                    "name": result.get('display_name', 'Unknown Location'),
-                    "distance_km": round(distance, 1),
-                    "lat": result_lat,
-                    "lon": result_lon
-                })
+            # Search using Nominatim
+            url = "https://nominatim.openstreetmap.org/search"
+            params = {
+                'q': search_term,
+                'format': 'jsonv2',
+                'lat': lat,
+                'lon': lon,
+                'limit': 10,
+                'bounded': 1,
+                'viewbox': f"{lon-0.2},{lat-0.2},{lon+0.2},{lat+0.2}"
+            }
+        
+            print(f"🌐 Making API call to: {url}")
+            print(f"📝 Query params: {params}")
             
-            # Sort by distance and return up to 5
-            suggestions.sort(key=lambda x: x['distance_km'])
-            return suggestions[:5] if suggestions else [{"type": "error", "name": "No locations found", "distance_km": 0.0, "lat": lat, "lon": lon}]
+            headers = {'User-Agent': 'BinBuddy/1.0'}
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            
+            print(f"📡 API Response: {response.status_code}")
+            
+            if response.status_code == 200:
+                results = response.json()
+                print(f"📊 Found {len(results)} raw results from API")
+                
+                if results:  # If we found results, process them
+                    suggestions = []
+                    
+                    for i, result in enumerate(results):
+                        print(f"🏢 Result {i+1}: {result.get('display_name', 'Unknown')}")
+                        
+                        result_lat = float(result['lat'])
+                        result_lon = float(result['lon'])
+                        distance = calculate_distance(lat, lon, result_lat, result_lon)
+                        
+                        # Determine type based on query content
+                        suggestion_type = "dropoff"
+                        if any(word in search_term.lower() for word in ['donation', 'charity', 'thrift']):
+                            suggestion_type = "donate"
+                        elif any(word in search_term.lower() for word in ['dump', 'landfill', 'disposal']):
+                            suggestion_type = "dispose"
+                        
+                        suggestions.append({
+                            "type": suggestion_type,
+                            "name": result.get('display_name', 'Unknown Location'),
+                            "distance_km": round(distance, 1),
+                            "lat": result_lat,
+                            "lon": result_lon
+                        })
+                    
+                    # Sort by distance and return up to 5
+                    suggestions.sort(key=lambda x: x['distance_km'])
+                    final_suggestions = suggestions[:5]
+                    print(f"✅ Returning {len(final_suggestions)} location suggestions")
+                    return final_suggestions
+                else:
+                    print(f"❌ No results for '{search_term}', trying next term...")
+            else:
+                print(f"❌ API returned status code: {response.status_code} for '{search_term}'")
         
     except Exception as e:
-        print(f"Error finding locations: {e}")
+        print(f"💥 Error finding locations: {e}")
     
-    # Return no locations found if API fails
-    return [{"type": "error", "name": "No locations found", "distance_km": 0.0, "lat": lat, "lon": lon}]
+    # Return empty list if API fails
+    print("🚫 Returning empty location list")
+    return []
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     """Calculate approximate distance in km between two coordinates"""
@@ -314,4 +351,4 @@ def get_available_icons():
     return jsonify(ICON_SETS)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    app.run(debug=True, host='0.0.0.0', port=5001) 
