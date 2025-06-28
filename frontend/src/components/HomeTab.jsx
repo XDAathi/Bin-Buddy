@@ -4,10 +4,10 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // Import UN SDG Images
-import sdg3 from '../assets/sdg_icons_color_goal_3.png';
-import sdg8 from '../assets/sdg_icons_color_goal_8.png';
-import sdg12 from '../assets/sdg_icons_color_goal_12.png';
-import sdg13 from '../assets/sdg_icons_color_goal_13.png';
+import sdg3 from '../assets/sdg_icons_color_goal_3.svg';
+import sdg8 from '../assets/sdg_icons_color_goal_8.svg';
+import sdg12 from '../assets/sdg_icons_color_goal_12.svg';
+import sdg13 from '../assets/sdg_icons_color_goal_13.svg';
 
 // Fix default marker icons for Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
