@@ -21,11 +21,17 @@ function App() {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    // Optionally handle errors here
   };
 
+  const signUp = async () =>{
+    await supabase.auth.signInWithOAuth({provider: "google",});
+  }
+
+
   if (!session) {
-    return (<Auth supabaseClient={supabase} appearance={{ theme: ThemeSupa }} />);
+    return (<>
+    <button onClick={signUp}>Sign in with Google</button>
+    </>);
   } else {
     return (
       <div>
