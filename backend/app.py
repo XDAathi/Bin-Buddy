@@ -80,7 +80,7 @@ Pick the most appropriate icon from the available sets."""
 def classify_image_with_gemini(image_data):
     """Classify image using dynamic Gemini Vision API"""
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         
         # Decode base64 image
         image_bytes = base64.b64decode(image_data.split(',')[1])
