@@ -19,11 +19,23 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    // Optionally handle errors here
+  };
+
   if (!session) {
     return (<Auth supabaseClient={supabase} appearance={{ theme: ThemeSupa }} />);
   } else {
-    return (<div>Logged in!</div>);
+    return (
+      <div>
+        Logged in!
+        <button onClick={signOut}>Sign Out</button>
+      </div>
+    );
   }
+
+  
 }
 
 export default App;
