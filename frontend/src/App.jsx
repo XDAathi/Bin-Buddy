@@ -168,7 +168,7 @@ function App() {
           signOut={signOut}
         />
 
-        <main className="py-8">
+        <main>
           {renderTabContent()}
         </main>
       </div>

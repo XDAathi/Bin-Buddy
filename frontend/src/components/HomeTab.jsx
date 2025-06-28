@@ -3,6 +3,12 @@ import { Camera, Upload, Loader2, CheckCircle, Heart, TreePine } from 'lucide-re
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+// Import UN SDG Images
+import sdg3 from '../assets/sdg_icons_color_goal_3.png';
+import sdg8 from '../assets/sdg_icons_color_goal_8.png';
+import sdg12 from '../assets/sdg_icons_color_goal_12.png';
+import sdg13 from '../assets/sdg_icons_color_goal_13.png';
+
 // Fix default marker icons for Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -207,7 +213,7 @@ const HomeTab = ({ onClassificationComplete, user }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-8">
+    <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
       {/* How to Use Section */}
       <div className="text-center space-y-4">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -416,34 +422,79 @@ const HomeTab = ({ onClassificationComplete, user }) => {
 
       {/* UN Sustainability Goals Section */}
       <div className="card">
-        <div className="text-center space-y-6">
+        <div className="text-center space-y-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            UN Sustainability Goals
+            UN Sustainability Goals We're Supporting
           </h2>
           
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            <div className="space-y-4">
-              <div className="flex items-center justify-center space-x-2">
-                <Heart className="h-6 w-6 text-red-500" />
-                <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Why you should Donate...
-                </span>
-              </div>
-              
-              <div className="text-left space-y-3 text-gray-700 dark:text-gray-300">
-                <p>• Reduces waste sent to landfills</p>
-                <p>• Helps families and communities in need</p>
-                <p>• Supports circular economy principles</p>
-                <p>• Minimizes environmental impact</p>
-                <p>• Creates positive social impact</p>
-              </div>
-            </div>
-            
-            <div className="flex justify-center">
-              <div className="w-32 h-32 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
-                <TreePine className="h-16 w-16 text-green-600" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Goal 12: Responsible Consumption and Production */}
+            <div className="flip-card group">
+              <div className="flip-card-inner">
+                <div className="flip-card-front sdg-card-official" style={{ backgroundColor: '#BF8B2E' }}>
+                  <img src={sdg12} alt="SDG Goal 12" className="w-full h-full object-cover rounded-lg" />
+                </div>
+                <div className="flip-card-back" style={{ backgroundColor: '#BF8B2E' }}>
+                  <div className="flex flex-col items-center justify-center h-full text-white p-4 text-center">
+                    <div className="text-sm font-medium leading-tight">
+                      Bin Buddy promotes sustainable consumption by helping users properly dispose of items, extending product lifecycles through donation, and reducing waste sent to landfills.
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
+
+            {/* Goal 13: Climate Action */}
+            <div className="flip-card group">
+              <div className="flip-card-inner">
+                <div className="flip-card-front sdg-card-official" style={{ backgroundColor: '#3F7E44' }}>
+                  <img src={sdg13} alt="SDG Goal 13" className="w-full h-full object-cover rounded-lg" />
+                </div>
+                <div className="flip-card-back" style={{ backgroundColor: '#3F7E44' }}>
+                  <div className="flex flex-col items-center justify-center h-full text-white p-4 text-center">
+                    <div className="text-sm font-medium leading-tight">
+                      Every item properly recycled or donated reduces CO₂ emissions. Bin Buddy tracks your environmental impact, showing real CO₂ savings from your waste disposal choices.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Goal 8: Decent Work and Economic Growth */}
+            <div className="flip-card group">
+              <div className="flip-card-inner">
+                <div className="flip-card-front sdg-card-official" style={{ backgroundColor: '#A21942' }}>
+                  <img src={sdg8} alt="SDG Goal 8" className="w-full h-full object-cover rounded-lg" />
+                </div>
+                <div className="flip-card-back" style={{ backgroundColor: '#A21942' }}>
+                  <div className="flex flex-col items-center justify-center h-full text-white p-4 text-center">
+                    <div className="text-sm font-medium leading-tight">
+                      By directing items to donation centers and recycling facilities, we support jobs in the circular economy and sustainable waste management industries.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Goal 3: Good Health and Well-being */}
+            <div className="flip-card group">
+              <div className="flip-card-inner">
+                <div className="flip-card-front sdg-card-official" style={{ backgroundColor: '#4C9F38' }}>
+                  <img src={sdg3} alt="SDG Goal 3" className="w-full h-full object-cover rounded-lg" />
+                </div>
+                <div className="flip-card-back" style={{ backgroundColor: '#4C9F38' }}>
+                  <div className="flex flex-col items-center justify-center h-full text-white p-4 text-center">
+                    <div className="text-sm font-medium leading-tight">
+                      Proper disposal prevents harmful chemicals from contaminating environments and reduces health risks from poor working conditions in waste management.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-sm text-gray-600 dark:text-gray-400 italic">
+            Hover over each card to learn why we're targeting these specific goals
           </div>
         </div>
       </div>
