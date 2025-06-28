@@ -1,7 +1,9 @@
-import React from 'react';
-import { Recycle, Home, History, BarChart3, User, Moon, Sun } from 'lucide-react';
+import React, { useState } from 'react';
+import { Recycle, Home, History, BarChart3, User, Moon, Sun, ChevronDown } from 'lucide-react';
 
 const Navigation = ({ activeTab, setActiveTab, darkMode, setDarkMode, user, signOut }) => {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
   const tabs = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'history', label: 'History', icon: History },
@@ -41,31 +43,45 @@ const Navigation = ({ activeTab, setActiveTab, darkMode, setDarkMode, user, sign
             })}
           </div>
 
-          {/* Right side controls */}
-          <div className="flex items-center space-x-4">
-            {/* Dark mode toggle */}
+          {/* User dropdown */}
+          <div className="relative">
             <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={() => setDropdownOpen((open) => !open)}
+              className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
-              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              <User className="h-6 w-6" />
+              <span className="hidden sm:block">{user?.email?.split('@')[0] || 'User'}</span>
+              <ChevronDown className="h-4 w-4" />
             </button>
-
-            {/* User menu */}
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <User className="h-6 w-6 text-gray-600 dark:text-gray-300" />
-                <span className="text-sm text-gray-600 dark:text-gray-300 hidden sm:block">
-                  {user?.email?.split('@')[0] || 'User'}
-                </span>
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50">
+                {/* Switch for light/dark mode */}
+                <div className="flex items-center w-full px-4 py-2">
+                  <span className="text-sm text-gray-700 dark:text-gray-200 mr-2">
+                    Light/Dark Mode
+                  </span>
+                  <label className="inline-flex relative items-center cursor-pointer ml-auto">
+                    <input
+                      type="checkbox"
+                      checked={darkMode}
+                      onChange={() => setDarkMode(!darkMode)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-eco dark:bg-gray-700 rounded-full peer peer-checked:bg-green-eco transition-all duration-300"></div>
+                    <div className={`absolute left-0.5 top-0.5 w-5 h-5 bg-white dark:bg-gray-900 rounded-full shadow-md transform transition-transform duration-300 ${darkMode ? 'translate-x-5' : ''}`}></div>
+                  </label>
+                </div>
+                <button
+                  onClick={() => {
+                    signOut();
+                    setDropdownOpen(false);
+                  }}
+                  className="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-100 dark:hover:bg-red-200"
+                >
+                  Log Out
+                </button>
               </div>
-              <button
-                onClick={signOut}
-                className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded-md text-sm font-medium transition-colors"
-              >
-                Log Out
-              </button>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -73,4 +89,4 @@ const Navigation = ({ activeTab, setActiveTab, darkMode, setDarkMode, user, sign
   );
 };
 
-export default Navigation; 
+export default Navigation;

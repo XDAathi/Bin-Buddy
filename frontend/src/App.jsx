@@ -13,7 +13,7 @@ import FootPrintTab from './components/FootPrintTab';
 function App() {
   const [session, setSession] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true); // true = dark mode by default
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
