@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, Loader2, CheckCircle, Heart, TreePine, ChevronDown, MapPin, Star, Mail, Info, ExternalLink, Navigation, Package, Trash2, Clipboard, Recycle, LeafyGreen } from 'lucide-react';
+import { motion } from 'framer-motion';
 import * as MdIcons from 'react-icons/md';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -455,29 +456,51 @@ const HomeTab = ({ onClassificationComplete, user }) => {
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
       {/* Upload Section - Only shown when no results */}
       {!result && (
-        <div className="card max-w-4xl mx-auto">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="max-w-4xl mx-auto rounded-2xl p-8 bg-white/5 dark:bg-gray-900/80 border border-white/10 dark:border-gray-700 backdrop-blur-xl shadow-xl"
+        >
           <div className="text-center space-y-6">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+              className="space-y-2"
+            >
+              <h2 className="text-2xl font-bold text-white">
                 Start Your Analysis
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-gray-300">
                 Take a photo or upload an image to identify and get disposal guidance
               </p>
-            </div>
+            </motion.div>
             
             {!selectedImage ? (
               <div className="space-y-6">
                 {/* Enhanced Camera Icon */}
-                <div className="flex justify-center">
-                  <div className="w-32 h-32 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/30 dark:to-blue-900/30 rounded-2xl flex items-center justify-center border-2 border-dashed border-green-300 dark:border-green-600">
-                    <Camera className="h-16 w-16 text-green-600 dark:text-green-400" />
+                <motion.div 
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                  className="flex justify-center"
+                >
+                  <div className="w-32 h-32 bg-gradient-to-br from-green-100/20 to-blue-100/20 dark:from-green-900/30 dark:to-blue-900/30 rounded-2xl flex items-center justify-center border-2 border-dashed border-green-300/50 dark:border-green-600/50 backdrop-blur-sm">
+                    <Camera className="h-16 w-16 text-green-400" />
                   </div>
-                </div>
+                </motion.div>
 
                 {/* Enhanced Upload buttons */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.5 }}
+                  className="flex flex-col sm:flex-row gap-4 justify-center"
+                >
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => {
                       if (window.innerWidth > 768) {
                         // Desktop: open camera modal
@@ -487,180 +510,221 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                         cameraInputRef.current?.click();
                       }
                     }}
-                    className="btn-primary flex items-center justify-center space-x-3 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                    className="flex items-center justify-center space-x-3 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 bg-green-500 text-white hover:bg-green-400"
                   >
                     <Camera className="h-6 w-6" />
                     <span>Take Photo</span>
-                  </button>
+                  </motion.button>
                   
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => fileInputRef.current?.click()}
-                    className="btn-secondary flex items-center justify-center space-x-3 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                    className="flex items-center justify-center space-x-3 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 bg-white/10 text-white hover:bg-white/20 border border-white/20"
                   >
                     <Upload className="h-6 w-6" />
                     <span>Upload Image</span>
-                  </button>
-                </div>
+                  </motion.button>
+                </motion.div>
                 
                 {/* Helpful tip */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 text-blue-700 dark:text-blue-300">
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5, duration: 0.5 }}
+                  className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 backdrop-blur-sm"
+                >
+                  <div className="flex items-center space-x-2 text-blue-300">
                     <p className="text-sm font-medium">
                       <strong>Tip:</strong> For best results, take clear photos with good lighting and focus on a single item
                     </p>
                   </div>
-                </div>
+                </motion.div>
               </div>
             ) : (
-              <div className="space-y-4">
-                {/* Image preview */}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-6"
+              >
+                {/* Image Preview */}
                 <div className="flex justify-center">
-                  <img
-                    src={selectedImage.preview}
-                    alt="Selected item"
-                    className="max-w-full max-h-64 rounded-lg shadow-md"
-                  />
-                </div>
-
-                {/* Analysis section */}
-                <div className="space-y-4">
-                  <div className="flex justify-center gap-4">
+                  <div className="relative">
+                    <img
+                      src={selectedImage.preview}
+                      alt="Selected"
+                      className="max-w-full h-64 object-cover rounded-xl shadow-lg"
+                    />
                     <button
-                      onClick={handleAnalyze}
-                      disabled={isAnalyzing}
-                      className="btn-primary flex items-center justify-center space-x-3 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:hover:scale-100"
+                      onClick={() => setSelectedImage(null)}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition"
                     >
-                      {isAnalyzing ? (
-                        <>
-                          <Loader2 className="h-6 w-6 animate-spin" />
-                          <span>Analyzing...</span>
-                        </>
-                      ) : (
-                        <span>Analyze Item</span>
-                      )}
-                    </button>
-                    <button
-                      onClick={resetAnalysis}
-                      className="btn-secondary flex items-center justify-center space-x-3 px-6 py-3 font-medium rounded-lg hover:shadow-md transition-all duration-200"
-                    >
-                      <span>Choose Different Image</span>
+                      ×
                     </button>
                   </div>
                 </div>
-              </div>
+
+                {/* Analyze Button */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleAnalyze}
+                  disabled={isAnalyzing}
+                  className="w-full flex items-center justify-center space-x-3 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 bg-green-500 text-white hover:bg-green-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                      <span>Analyzing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-6 w-6" />
+                      <span>Analyze Image</span>
+                    </>
+                  )}
+                </motion.button>
+              </motion.div>
             )}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Results Section - Only shown when we have results */}
       {result && (
-        <div className="card">
-          <div className="space-y-4">
-            {/* Updated header text for results */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="space-y-8"
+        >
+          {/* Updated header text for results */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.5 }}
+            className="rounded-2xl p-8 bg-white/5 dark:bg-gray-900/80 border border-white/10 dark:border-gray-700 backdrop-blur-xl shadow-xl"
+          >
             <div className="text-center space-y-3 mb-8">
-              <h2 className="text-4xl font-bold text-gray-900 dark:text-white">
+              <h2 className="text-4xl font-bold text-white">
                 Analysis Complete
               </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-400">
+              <p className="text-xl text-gray-300">
                 Here's what we found and how to properly dispose of your item
               </p>
             </div>
 
             {result.error ? (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <p className="text-red-700 dark:text-red-300">{result.error}</p>
+              <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4">
+                <p className="text-red-300">{result.error}</p>
               </div>
             ) : (
-                                    <div className="space-y-8">
-                        {/* Image and Main Classification - Side by Side */}
-                        <div className="flex gap-8 items-stretch">
-                          {/* Image Preview */}
-                          <div className="flex-shrink-0">
-                            <img
-                              src={selectedImage.preview}
-                              alt="Analyzed item"
-                              className="w-64 h-full object-cover rounded-xl shadow-lg"
-                            />
-                          </div>
+              <div className="space-y-8">
+                {/* Image and Main Classification - Side by Side */}
+                <div className="flex gap-8 items-stretch">
+                  {/* Image Preview */}
+                  <div className="flex-shrink-0">
+                    <img
+                      src={selectedImage.preview}
+                      alt="Analyzed item"
+                      className="w-64 h-full object-cover rounded-xl shadow-lg"
+                    />
+                  </div>
 
-                          {/* Main Classification Header */}
-                          <div 
-                            className="flex-1 rounded-xl p-8 border-2 shadow-lg"
+                  {/* Main Classification Header */}
+                  <div 
+                    className="flex-1 rounded-xl p-8 border-2 shadow-lg"
                     style={{ 
                       backgroundColor: `${result.color || '#10B981'}80`,
                       borderColor: result.color || '#10B981',
                       color: '#FFFFFF'
                     }}
                   >
-                                                <div className="space-y-6">
-                              <div className="flex items-center space-x-6">
-                                <div className="bg-white/20 rounded-full p-6 backdrop-blur-sm">
-                                  {getIconFromMaterialName(result.icon, 64, '#FFFFFF')}
-                                </div>
-                                <div>
-                                  <h3 className="text-4xl font-bold mb-3">
-                                    {result.display_name}
-                                  </h3>
-                                  <div className="flex items-center space-x-4 text-lg font-medium opacity-90">
-                                    <span className="bg-white/20 px-4 py-2 rounded-full">{result.weight}kg</span>
-                                  </div>
-                                </div>
-                              </div>
+                    <div className="space-y-6">
+                      <div className="flex items-center space-x-6">
+                        <div className="bg-white/20 rounded-full p-6 backdrop-blur-sm">
+                          {getIconFromMaterialName(result.icon, 64, '#FFFFFF')}
+                        </div>
+                        <div>
+                          <h3 className="text-4xl font-bold mb-3">
+                            {result.display_name}
+                          </h3>
+                          <div className="flex items-center space-x-4 text-lg font-medium opacity-90">
+                            <span className="bg-white/20 px-4 py-2 rounded-full">{result.weight}kg</span>
+                          </div>
+                        </div>
+                      </div>
                       
-                                                    {/* Environmental Impact */}
-                              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-6 border border-white/30">
-                                <div className="flex items-center justify-center space-x-3 mb-4">
-                                  <TreePine 
-                                    size={32} 
-                                    color='#FFFFFF' 
-                                  />
-                                  <span className="text-2xl font-bold">Environmental Impact</span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-8">
-                                  <div className="text-center">
-                                    <p className="text-4xl font-bold">{result.co2_saved}kg</p>
-                                    <p className="text-lg font-medium opacity-90">CO₂ Saved</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-4xl font-bold">{result.co2_rate}x</p>
-                                    <p className="text-lg font-medium opacity-90">Impact Rate</p>
-                                  </div>
-                                </div>
-                              </div>
+                      {/* Environmental Impact */}
+                      <div className="bg-white/20 backdrop-blur-sm rounded-lg p-6 border border-white/30">
+                        <div className="flex items-center justify-center space-x-3 mb-4">
+                          <TreePine 
+                            size={32} 
+                            color='#FFFFFF' 
+                          />
+                          <span className="text-2xl font-bold">Environmental Impact</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-8">
+                          <div className="text-center">
+                            <p className="text-4xl font-bold">{result.co2_saved}kg</p>
+                            <p className="text-lg font-medium opacity-90">CO₂ Saved</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-4xl font-bold">{result.co2_rate}x</p>
+                            <p className="text-lg font-medium opacity-90">Impact Rate</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Item Properties */}
                 <div className="grid grid-cols-3 gap-6">
-                  <div className={`p-8 rounded-xl text-center border-2 shadow-md transition-all duration-200 hover:shadow-lg ${
-                    result.recyclable 
-                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 text-green-800 dark:text-green-200' 
-                      : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-800 dark:text-red-200'
-                  }`}>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2, duration: 0.5 }}
+                    whileHover={{ scale: 1.05, y: -5 }}
+                    className={`p-8 rounded-xl text-center border-2 shadow-md transition-all duration-200 backdrop-blur-sm ${
+                      result.recyclable 
+                        ? 'bg-green-500/20 border-green-500/30 text-green-300 hover:shadow-green-500/20 hover:bg-green-500/30' 
+                        : 'bg-red-500/20 border-red-500/30 text-red-300 hover:shadow-red-500/20 hover:bg-red-500/30'
+                    }`}
+                  >
                     <div className="text-5xl mb-4">{result.recyclable ? '♻️' : '❌'}</div>
                     <div className="font-bold text-2xl mb-2">Recyclable</div>
                     <div className="text-lg font-medium opacity-90">{result.recyclable ? 'Yes' : 'No'}</div>
-                  </div>
+                  </motion.div>
                   
-                  <div className={`p-8 rounded-xl text-center border-2 shadow-md transition-all duration-200 hover:shadow-lg ${
-                    result.donation_worthy 
-                      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-200' 
-                      : 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200'
-                  }`}>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.3, duration: 0.5 }}
+                    whileHover={{ scale: 1.05, y: -5 }}
+                    className={`p-8 rounded-xl text-center border-2 shadow-md transition-all duration-200 backdrop-blur-sm ${
+                      result.donation_worthy 
+                        ? 'bg-blue-500/20 border-blue-500/30 text-blue-300 hover:shadow-blue-500/20 hover:bg-blue-500/30' 
+                        : 'bg-gray-500/20 border-gray-500/30 text-gray-300 hover:shadow-gray-500/20 hover:bg-gray-500/30'
+                    }`}
+                  >
                     <div className="text-5xl mb-4">{result.donation_worthy ? '💝' : '🚫'}</div>
                     <div className="font-bold text-2xl mb-2">Donatable</div>
                     <div className="text-lg font-medium opacity-90">{result.donation_worthy ? 'Yes' : 'No'}</div>
-                  </div>
+                  </motion.div>
                   
-                  <div className="p-8 rounded-xl text-center border-2 shadow-md transition-all duration-200 hover:shadow-lg bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700 text-purple-800 dark:text-purple-200">
-                    <div className="text-5xl mb-4">📦</div>
-                    <div className="space-y-3">
-                      <div className="font-bold text-2xl">{formatCategoryName(result.main_category)}</div>
-                      <div className="text-lg font-medium opacity-75">{formatCategoryName(result.specific_category)}</div>
-                    </div>
-                  </div>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.4, duration: 0.5 }}
+                    whileHover={{ scale: 1.05, y: -5 }}
+                    className="p-8 rounded-xl text-center border-2 shadow-md transition-all duration-200 bg-purple-500/20 border-purple-500/30 text-purple-300 backdrop-blur-sm hover:shadow-purple-500/20 hover:bg-purple-500/30"
+                  >
+                    <div className="text-5xl mb-4">🌱</div>
+                    <div className="font-bold text-2xl mb-2">CO₂ Saved</div>
+                    <div className="text-lg font-medium opacity-90">{result.co2_saved?.toFixed(2) || '0.00'} kg</div>
+                  </motion.div>
                 </div>
 
                 {/* Disposal Methods */}
@@ -671,38 +735,55 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                     <div className="space-y-6">
                       {/* Standard Disposal Methods - Always Visible */}
                       {standard.length > 0 && (
-                        <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border border-green-200 dark:border-green-800 rounded-xl p-8">
-                          <h4 className="font-bold text-gray-900 dark:text-white mb-6 flex items-center space-x-3">
-                            <Recycle className="w-8 h-8 text-green-500" />
+                        <motion.div 
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.3, duration: 0.5 }}
+                          className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-xl p-8 backdrop-blur-sm"
+                        >
+                          <h4 className="font-bold text-white mb-6 flex items-center space-x-3">
+                            <Recycle className="w-8 h-8 text-green-400" />
                             <span className="text-2xl">Easy Disposal</span>
                           </h4>
                           <div className="grid gap-4">
                             {standard.map((method, index) => (
-                              <div key={index} className="flex items-center space-x-4 p-4 bg-white/70 dark:bg-gray-800/70 rounded-lg backdrop-blur-sm border border-white/50">
+                              <motion.div 
+                                key={index}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.4 + index * 0.1, duration: 0.5 }}
+                                whileHover={{ scale: 1.02, x: 5 }}
+                                className="flex items-center space-x-4 p-4 bg-white/10 rounded-lg backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-200"
+                              >
                                 <div className="flex-shrink-0">
                                   {getDisposalIcon(method)}
                                 </div>
-                                <p className="text-gray-700 dark:text-gray-300 font-medium text-lg flex-1">
+                                <p className="text-gray-200 font-medium text-lg flex-1">
                                   {method}
                                 </p>
-                                <div className="flex-shrink-0 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-3 py-1 rounded-full text-sm font-medium">
+                                <div className="flex-shrink-0 bg-green-500/20 text-green-300 px-3 py-1 rounded-full text-sm font-medium">
                                   Standard
                                 </div>
-                              </div>
+                              </motion.div>
                             ))}
                           </div>
-                        </div>
+                        </motion.div>
                       )}
 
                       {/* Special Disposal Methods - Collapsible */}
                       {special.length > 0 && (
-                        <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-8">
+                        <motion.div 
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.5, duration: 0.5 }}
+                          className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20 rounded-xl p-8 backdrop-blur-sm"
+                        >
                           <button
                             onClick={() => setIsDisposalOpen(!isDisposalOpen)}
                             className="w-full flex items-center justify-between text-left group hover:bg-white/20 dark:hover:bg-gray-800/20 rounded-lg p-3 -m-3 transition-colors"
                           >
-                            <h4 className="font-bold text-gray-900 dark:text-white flex items-center space-x-3">
-                              <Clipboard className="w-8 h-8 text-orange-500" />
+                            <h4 className="font-bold text-white flex items-center space-x-3">
+                              <Info className="w-8 h-8 text-orange-400" />
                               <span className="text-2xl">Special Disposal Instructions</span>
                             </h4>
                             <ChevronDown 
@@ -717,18 +798,28 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                           }`}>
                             <div className="grid gap-4">
                               {special.map((method, index) => (
-                                <div key={index} className="flex items-center space-x-4 p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg backdrop-blur-sm">
-                                  <div className="flex-shrink-0 w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-xl">
-                                    {index + 1}
+                                <motion.div 
+                                  key={index}
+                                  initial={{ opacity: 0, x: 10 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: 0.6 + index * 0.1, duration: 0.5 }}
+                                  whileHover={{ scale: 1.02, x: -5 }}
+                                  className="flex items-center space-x-4 p-4 bg-white/10 rounded-lg backdrop-blur-sm border border-white/20 hover:bg-white/20 hover:border-white/30 transition-all duration-200"
+                                >
+                                  <div className="flex-shrink-0">
+                                    {getDisposalIcon(method)}
                                   </div>
-                                  <p className="text-gray-700 dark:text-gray-300 font-medium text-xl leading-relaxed">
+                                  <p className="text-gray-200 font-medium text-lg flex-1">
                                     {method}
                                   </p>
-                                </div>
+                                  <div className="flex-shrink-0 bg-orange-500/20 text-orange-300 px-3 py-1 rounded-full text-sm font-medium">
+                                    Special
+                                  </div>
+                                </motion.div>
                               ))}
                             </div>
                           </div>
-                        </div>
+                        </motion.div>
                       )}
                     </div>
                   );
@@ -816,10 +907,10 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                       
                       {/* Show More/Less Button */}
                       {result.suggestions.length > 5 && (
-                        <div className="flex justify-center mt-6">
+                        <div className="flex justify-center mt-6 mb-8">
                           <button
                             onClick={() => setShowAllLocations(!showAllLocations)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-8 py-3 rounded-lg transition-colors shadow-md text-lg"
+                            className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-4 py-2 rounded-lg transition-colors shadow-md text-base min-w-max"
                           >
                             {showAllLocations ? 'Show Less' : `Show More (${result.suggestions.length - 5} more)`}
                           </button>
@@ -846,16 +937,16 @@ const HomeTab = ({ onClassificationComplete, user }) => {
               </div>
             )}
             
-            <div className="flex justify-center">
+            <div className="flex justify-center pt-8">
               <button
                 onClick={resetAnalysis}
-                className="bg-green-600 hover:bg-green-700 text-white font-bold py-6 px-12 text-xl rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 border-2 border-green-600 hover:border-green-700"
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 text-base rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 border-2 border-green-600 hover:border-green-700 min-w-max"
               >
                 <span>Analyze Another Item</span>
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {/* Hidden file inputs */}
@@ -876,15 +967,25 @@ const HomeTab = ({ onClassificationComplete, user }) => {
       />
 
       {/* UN Sustainability Goals Section */}
-      <div className="card">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 0.6 }}
+        className="rounded-2xl p-10 bg-white/5 dark:bg-gray-900/80 border border-white/10 dark:border-gray-700 backdrop-blur-xl shadow-xl"
+      >
         <div className="text-center space-y-8">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-2xl font-bold text-white">
             UN Sustainability Goals We're Supporting
           </h2>
           
           <div className="grid grid-cols-4 gap-6">
             {/* Goal 12: Responsible Consumption and Production */}
-            <div className="flip-card group">
+            <motion.div 
+              initial={{ opacity: 0, rotateY: -90 }}
+              animate={{ opacity: 1, rotateY: 0 }}
+              transition={{ delay: 0.6, duration: 0.6 }}
+              className="flip-card group"
+            >
               <div className="flip-card-inner">
                 <div className="flip-card-front sdg-card-official" style={{ backgroundColor: '#BF8B2E' }}>
                   <img src={sdg12} alt="SDG Goal 12" className="w-full h-full object-cover rounded-lg" />
@@ -897,10 +998,15 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Goal 13: Climate Action */}
-            <div className="flip-card group">
+            <motion.div 
+              initial={{ opacity: 0, rotateY: -90 }}
+              animate={{ opacity: 1, rotateY: 0 }}
+              transition={{ delay: 0.7, duration: 0.6 }}
+              className="flip-card group"
+            >
               <div className="flip-card-inner">
                 <div className="flip-card-front sdg-card-official" style={{ backgroundColor: '#3F7E44' }}>
                   <img src={sdg13} alt="SDG Goal 13" className="w-full h-full object-cover rounded-lg" />
@@ -913,10 +1019,15 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Goal 8: Decent Work and Economic Growth */}
-            <div className="flip-card group">
+            <motion.div 
+              initial={{ opacity: 0, rotateY: -90 }}
+              animate={{ opacity: 1, rotateY: 0 }}
+              transition={{ delay: 0.8, duration: 0.6 }}
+              className="flip-card group"
+            >
               <div className="flip-card-inner">
                 <div className="flip-card-front sdg-card-official" style={{ backgroundColor: '#A21942' }}>
                   <img src={sdg8} alt="SDG Goal 8" className="w-full h-full object-cover rounded-lg" />
@@ -929,10 +1040,15 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Goal 3: Good Health and Well-being */}
-            <div className="flip-card group">
+            <motion.div 
+              initial={{ opacity: 0, rotateY: -90 }}
+              animate={{ opacity: 1, rotateY: 0 }}
+              transition={{ delay: 0.9, duration: 0.6 }}
+              className="flip-card group"
+            >
               <div className="flip-card-inner">
                 <div className="flip-card-front sdg-card-official" style={{ backgroundColor: '#4C9F38' }}>
                   <img src={sdg3} alt="SDG Goal 3" className="w-full h-full object-cover rounded-lg" />
@@ -945,14 +1061,14 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
 
-          <div className="text-sm text-gray-600 dark:text-gray-400 italic">
+          <div className="text-sm text-gray-300 italic">
             Hover over each card to learn why we're targeting these specific goals
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Camera Modal (for desktop) */}
       {showCameraModal && (

@@ -242,7 +242,41 @@ function App() {
 
   return (
     <div className={darkMode ? 'dark' : ''}>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-950 to-black relative overflow-x-hidden overflow-y-auto">
+        {/* Animated background: stars and circles */}
+        <div className="fixed inset-0 z-0 pointer-events-none">
+          <svg width="100%" height="100%" className="absolute inset-0 opacity-30">
+            <defs>
+              <radialGradient id="star" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#fff" stopOpacity="1" />
+                <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            {Array.from({ length: 60 }).map((_, i) => (
+              <circle
+                key={i}
+                cx={Math.random() * 100 + "%"}
+                cy={Math.random() * 100 + "%"}
+                r={Math.random() * 1.2 + 0.3}
+                fill="url(#star)"
+                opacity={Math.random() * 0.7 + 0.2}
+              />
+            ))}
+          </svg>
+          <div className="absolute w-96 h-96 bg-green-400 bg-opacity-20 rounded-full blur-3xl animate-pulse-slow left-[-10%] top-[-10%]" style={{animationDelay: '0s'}} />
+          <div className="absolute w-80 h-80 bg-blue-400 bg-opacity-20 rounded-full blur-3xl animate-pulse-slow right-[-8%] top-[20%]" style={{animationDelay: '2s'}} />
+          <div className="absolute w-72 h-72 bg-purple-400 bg-opacity-20 rounded-full blur-3xl animate-pulse-slow left-[30%] bottom-[-12%]" style={{animationDelay: '4s'}} />
+          <style>{`
+            @keyframes pulse-slow {
+              0%, 100% { transform: scale(1) translateY(0); opacity: 0.7; }
+              50% { transform: scale(1.1) translateY(10px); opacity: 1; }
+            }
+            .animate-pulse-slow {
+              animation: pulse-slow 8s ease-in-out infinite;
+            }
+          `}</style>
+        </div>
+
         <Navigation
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -253,7 +287,7 @@ function App() {
           onLogoClick={() => setShowLanding(true)}
         />
 
-        <main>
+        <main className="relative z-10">
           {renderTabContent()}
         </main>
       </div>
