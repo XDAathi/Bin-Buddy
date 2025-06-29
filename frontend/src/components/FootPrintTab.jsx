@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   TrendingUp, Award, Target, TreePine, Recycle, BarChart3, PieChart as PieChartIcon, Zap, Globe, Calendar, 
   Users, Star, Trophy, Medal, Flame, Sparkles, Check, MapPin, Activity, Leaf, Trash2, Factory,
@@ -15,9 +15,9 @@ import {
   getRealCategoryBreakdown, 
   getRealDailyActivity, 
   getRealMonthlyTrends,
-  getUserFirstClassificationDate,
-  getUserClassificationsWithImages
+  getUserFirstClassificationDate
 } from '../utils/supabase-integration';
+import { getUserClassificationsWithImages } from '../supabase_integration_with_images';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion } from 'framer-motion';
@@ -36,11 +36,13 @@ const FootPrintTab = ({ user }) => {
     radarData: []
   });
 
-  const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [classificationsLoading, setClassificationsLoading] = useState(true);
+  const [allClassifications, setAllClassifications] = useState([]);
   const [aiSummary, setAiSummary] = useState('');
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [previousAchievements, setPreviousAchievements] = useState([]);
-  const [allClassifications, setAllClassifications] = useState([]);
+  const [dataReady, setDataReady] = useState(false);
 
   // Derived count of items that are not yet completed (matches History "Pending Disposal")
   const completedItemsCount = allClassifications.filter(item => item.completed).length;
@@ -59,13 +61,25 @@ const FootPrintTab = ({ user }) => {
     { id: 10, title: 'Sustainability Star', description: 'Analyzed 200 items', condition: (stats) => stats.totalItems >= 200, icon: Star },
   ];
 
+  // Restore correct allLocations and mapCenter logic
+  const allLocations = useMemo(() =>
+    allClassifications
+      .flatMap(item => item.location_suggestions || [])
+      .filter(loc => loc && typeof loc.lat === 'number' && typeof loc.lon === 'number')
+  , [allClassifications]);
+
+  const mapCenter = useMemo(() =>
+    allLocations.length > 0
+      ? { lat: allLocations[0].lat, lon: allLocations[0].lon }
+      : { lat: 40.7128, lon: -74.0060 }
+  , [allLocations]);
+
   useEffect(() => {
     const fetchRealStats = async () => {
       if (!user || !user.id) {
-        setLoading(false);
+        setStatsLoading(false);
         return;
       }
-
       try {
         const [
           userStats,
@@ -82,7 +96,6 @@ const FootPrintTab = ({ user }) => {
           getRealMonthlyTrends(user.id),
           getUserFirstClassificationDate(user.id)
         ]);
-
         if (userStats) {
           const daysSinceFirstItem = firstClassificationDate 
             ? Math.floor((Date.now() - new Date(firstClassificationDate).getTime()) / (24 * 60 * 60 * 1000))
@@ -138,19 +151,21 @@ const FootPrintTab = ({ user }) => {
       } catch (err) {
         console.error('Error fetching real user stats:', err);
       } finally {
-        setLoading(false);
+        setStatsLoading(false);
       }
     };
 
-    fetchRealStats();
-  }, [user]);
-
-  useEffect(() => {
     const fetchAllClassifications = async () => {
-      if (!user || !user.id) return;
+      if (!user || !user.id) {
+        setClassificationsLoading(false);
+        return;
+      }
       const { data } = await getUserClassificationsWithImages(user.id, 100);
       setAllClassifications(data || []);
+      setClassificationsLoading(false);
     };
+
+    fetchRealStats();
     fetchAllClassifications();
   }, [user]);
 
@@ -167,7 +182,8 @@ const FootPrintTab = ({ user }) => {
           total_items: stats.totalItems,
           total_weight: stats.totalWeight,
           category_breakdown: categoryBreakdown,
-          recent_achievements: achievements.map(a => a.title)
+          recent_achievements: achievements.map(a => a.title),
+          detailed: true
         })
       });
 
@@ -178,14 +194,12 @@ const FootPrintTab = ({ user }) => {
         throw new Error('Failed to generate summary');
       }
     } catch (error) {
-      console.error('Error generating AI summary:', error);
-      setAiSummary("Based on analysis of your waste management activities, you have processed " + 
-        stats.totalItems + " items, saving " + stats.totalCO2Saved + "kg of CO₂. " +
-        (Object.keys(categoryBreakdown).length > 0 ? 
-          "Your top category is " + Object.entries(categoryBreakdown).sort((a,b) => b[1].count - a[1].count)[0][0] + 
-          " (" + Object.entries(categoryBreakdown).sort((a,b) => b[1].count - a[1].count)[0][1].percentage + "%)." : 
-          "Continue analyzing items to build your impact profile.") +
-        " Keep up the environmental stewardship!"
+      setAiSummary(
+        `You have processed ${stats.totalItems} items, saving ${stats.totalCO2Saved}kg of CO₂ across ${stats.totalWeight}kg of waste.\n` +
+        (Object.keys(categoryBreakdown).length > 0 ?
+          `Top category: ${Object.entries(categoryBreakdown).sort((a,b) => b[1].count - a[1].count)[0][0]} (${Object.entries(categoryBreakdown).sort((a,b) => b[1].count - a[1].count)[0][1].percentage}%).\n` :
+          '') +
+        `Keep up the environmental stewardship! For even greater impact, focus on high-CO₂-saving materials and increase your recycling frequency.`
       );
     } finally {
       setLoadingSummary(false);
@@ -232,7 +246,7 @@ const FootPrintTab = ({ user }) => {
     { name: 'Trees Planted Equiv.', value: stats.totalCO2Saved / 22, unit: '', icon: TreePine },
   ];
   
-  if (loading) {
+  if (statsLoading || classificationsLoading) {
     return (
       <div className="max-w-full mx-auto px-4 py-6">
         <div className="flex justify-center items-center h-64">
@@ -283,12 +297,7 @@ const FootPrintTab = ({ user }) => {
   };
 
   const CardLayout = ({ title, icon, children }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="card"
-    >
+    <div className="card">
       <div className="flex items-center space-x-3 mb-4">
         {icon && (
           <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
@@ -298,7 +307,7 @@ const FootPrintTab = ({ user }) => {
         <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{title}</h3>
       </div>
       {children}
-    </motion.div>
+    </div>
   );
 
   // MapComponent (adapted from HomeTab)
@@ -360,43 +369,35 @@ const FootPrintTab = ({ user }) => {
     }, [userLocation, locations]);
     return <div ref={mapRef} className="w-full h-full"/>;
   };
+  const MemoizedMapComponent = React.memo(MapComponent);
 
   // Gallery component for monthly images
   const Gallery = ({ items }) => {
-    const buildSrcs = (item) => {
-      if (item.image_url) return [item.image_url];
-      if (item.waste_image_id) {
-        const base = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${item.waste_image_id}`;
-        return [`${base}.jpg`, `${base}.webp`, `${base}.png`];
-      }
-      return [];
-    };
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
         {items.length === 0 ? (
           <div className="col-span-full text-center text-gray-400 dark:text-gray-500">No images uploaded this month.</div>
         ) : (
           items.map((item, idx) => {
-            const srcs = buildSrcs(item);
-            if (srcs.length === 0) return null;
+            const id = item.waste_image_id || item.image_url || idx;
             return (
-              <div key={idx} className="relative w-full h-32">
-                <picture>
-                  <source srcSet={srcs[1] || srcs[0]} type="image/webp" />
+              <div key={id} className="relative w-full h-32">
+                {item.image_url ? (
                   <img
-                    src={srcs[0]}
+                    src={item.image_url}
                     alt={item.display_name || 'Uploaded item'}
                     className="w-full h-32 object-cover rounded-lg shadow-md"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      const fallback = e.target.parentNode.parentNode.querySelector('.fallback-icon');
-                      if (fallback) fallback.style.display = 'flex';
-                    }}
                   />
-                </picture>
-                <div className="fallback-icon absolute inset-0 w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg" style={{ display: 'none' }}>
-                  <ImageIcon className="w-10 h-10 text-gray-400" />
-                </div>
+                ) : (
+                  <div className="fallback-icon absolute inset-0 w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg">
+                    <div className="text-center">
+                      <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {item.waste_image_id || 'No image'}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })
@@ -405,19 +406,11 @@ const FootPrintTab = ({ user }) => {
     );
   };
 
-  // Helper: get all locations from allClassifications
-  const allLocations = allClassifications
-    .flatMap(item => item.location_suggestions || [])
-    .filter(loc => loc && typeof loc.lat === 'number' && typeof loc.lon === 'number');
-  // Center map on most recent drop-off location, else default to NYC
-  const mapCenter = allLocations.length > 0
-    ? { lat: allLocations[0].lat, lon: allLocations[0].lon }
-    : { lat: 40.7128, lon: -74.0060 };
-  // Helper: get all images from current month
-  const now = new Date();
-  const currentMonth = now.toISOString().slice(0, 7); // YYYY-MM
-  const galleryItems = allClassifications
-    .filter(item => (item.image_url || item.waste_image_id) && item.created_at && item.created_at.slice(0, 7) === currentMonth);
+  // Helper: get 8 most recent images
+  const galleryItems = [...allClassifications]
+    .filter(item => item.image_url)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 8);
 
   return (
     <>
@@ -426,11 +419,7 @@ const FootPrintTab = ({ user }) => {
         {/* Main Content Area */}
         <div className="flex-1 space-y-6">
           {/* Header */}
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center space-y-4"
-          >
+          <div className="text-center space-y-4">
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
               Your Environmental Impact
             </h1>
@@ -438,63 +427,43 @@ const FootPrintTab = ({ user }) => {
             <p className="text-lg text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
               {getImpactMessage(stats.totalCO2Saved)}
             </p>
-          </motion.div>
+          </div>
 
           {/* Big Stats Grid - More dynamic */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Main Stats */}
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.1 }}
-              className="card p-6 flex flex-col items-center justify-center text-center bg-gray-50 dark:bg-gray-800/50"
-            >
+            <div className="card p-6 flex flex-col items-center justify-center text-center bg-gray-50 dark:bg-gray-800/50">
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mb-4">
                 <Recycle className="h-8 w-8 text-green-500" />
               </div>
               <p className="text-4xl font-bold text-green-500">{stats.totalCO2Saved.toFixed(1)}kg</p>
               <p className="text-lg text-gray-600 dark:text-gray-400">CO₂ Saved</p>
-            </motion.div>
+            </div>
 
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 }}
-              className="card p-6 flex flex-col items-center justify-center text-center bg-gray-50 dark:bg-gray-800/50"
-            >
+            <div className="card p-6 flex flex-col items-center justify-center text-center bg-gray-50 dark:bg-gray-800/50">
               <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-4">
                 <BarChart3 className="h-8 w-8 text-blue-500" />
               </div>
               <p className="text-4xl font-bold text-blue-500">{completedItemsCount}</p>
               <p className="text-lg text-gray-600 dark:text-gray-400">Completed Items</p>
-            </motion.div>
+            </div>
 
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3 }}
-              className="card p-6 flex flex-col items-center justify-center text-center bg-gray-50 dark:bg-gray-800/50"
-            >
+            <div className="card p-6 flex flex-col items-center justify-center text-center bg-gray-50 dark:bg-gray-800/50">
               <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center mb-4">
                 <TrendingUp className="h-8 w-8 text-orange-500" />
               </div>
               <p className="text-4xl font-bold text-orange-500">{stats.totalWeight.toFixed(1)}kg</p>
               <p className="text-lg text-gray-600 dark:text-gray-400">Total Weight</p>
-            </motion.div>
+            </div>
           </div>
 
-          {/* AI Summary Card */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="card"
-          >
+          {/* Gemini AI Summary Card */}
+          <div className="card">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                 <Sparkles className="h-5 w-5 text-white" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Environmental Impact Analysis</h3>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Detailed Environmental Impact Summary</h3>
             </div>
             {loadingSummary ? (
               <div className="flex items-center space-x-2">
@@ -502,15 +471,11 @@ const FootPrintTab = ({ user }) => {
                 <p className="text-gray-600 dark:text-gray-400">Generating personalized insights...</p>
               </div>
             ) : (
-              <motion.p 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-gray-700 dark:text-gray-300 leading-relaxed"
-              >
+              <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
                 {aiSummary}
-              </motion.p>
+              </p>
             )}
-          </motion.div>
+          </div>
 
           {/* Charts Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -518,7 +483,7 @@ const FootPrintTab = ({ user }) => {
             <CardLayout title="Drop-off Locations Map" icon={BarChartIcon}>
               <div style={{ height: 320, borderRadius: 16, overflow: 'hidden' }}>
                 {user && allLocations.length > 0 ? (
-                  <MapComponent
+                  <MemoizedMapComponent
                     userLocation={mapCenter}
                     locations={allLocations}
                   />
@@ -606,12 +571,7 @@ const FootPrintTab = ({ user }) => {
         </div>
 
         {/* Floating Achievements Sidebar */}
-        <motion.div 
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3 }}
-          className="w-80 sticky top-20 h-[calc(100vh-6rem)]"
-        >
+        <div className="w-80 sticky top-20 h-[calc(100vh-6rem)]">
           <div className="card bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/10 dark:to-orange-900/10 border-2 border-yellow-200 dark:border-yellow-800">
             <div className="flex items-center space-x-3 mb-6">
               <div className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
@@ -622,11 +582,8 @@ const FootPrintTab = ({ user }) => {
             
             <div className="space-y-3 max-h-[calc(100vh-20rem)] overflow-y-auto">
               {stats.achievements.map((achievement, index) => (
-                <motion.div
+                <div
                   key={achievement.id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.9 + index * 0.05 }}
                   className={`p-3 rounded-lg border transition-all hover:scale-105 cursor-pointer ${
                     achievement.unlocked
                       ? 'border-green-eco bg-green-50 dark:bg-green-900/20 shadow-md'
@@ -650,17 +607,14 @@ const FootPrintTab = ({ user }) => {
                       </p>
                     </div>
                     {achievement.unlocked && (
-                      <motion.div 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", delay: 1.2 + index * 0.05 }}
+                      <div 
                         className="w-6 h-6 bg-green-eco rounded-full flex items-center justify-center"
                       >
                         <Check className="w-4 h-4 text-white" />
-                      </motion.div>
+                      </div>
                     )}
                   </div>
-                </motion.div>
+                </div>
               ))}
             </div>
 
@@ -673,16 +627,13 @@ const FootPrintTab = ({ user }) => {
                 </span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(stats.achievements.filter(a => a.unlocked).length / stats.achievements.length) * 100}%` }}
-                  transition={{ delay: 1.5, duration: 1 }}
+                <div
                   className="bg-gradient-to-r from-green-eco to-blue-500 h-2 rounded-full"
-                ></motion.div>
+                ></div>
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </>
   );
