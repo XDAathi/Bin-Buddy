@@ -211,23 +211,31 @@ const HomeTab = ({ onClassificationComplete, user }) => {
 
     if (!apiResponse.error && user?.id) {
       const classification = {
+        image_id: apiResponse.image_id || crypto.randomUUID(),
         main_category: apiResponse.main_category,
         specific_category: apiResponse.specific_category,
         display_name: apiResponse.display_name,
         confidence: apiResponse.confidence,
-        weight_kg: apiResponse.estimated_weight_kg || apiResponse.weight_kg,
-        co2_saved_kg: apiResponse.co2_saved_kg || apiResponse.co2_saved,
-        co2_rate_per_kg: apiResponse.co2_saved_kg_per_kg || apiResponse.co2_rate_per_kg,
-        color: apiResponse.color,
-        icon: apiResponse.icon,
-        disposal_methods: apiResponse.disposal_methods,
-        recyclable: apiResponse.recyclable,
+        weight_kg: apiResponse.estimated_weight_kg || apiResponse.weight_kg || 0,
+        co2_saved_kg: apiResponse.co2_saved_kg || apiResponse.co2_saved || 0,
+        co2_rate_per_kg: apiResponse.co2_saved_kg_per_kg || apiResponse.co2_rate_per_kg || 0,
+        color: apiResponse.color || '#10B981',
+        icon: apiResponse.icon || 'general/item',
+        disposal_methods: apiResponse.disposal_methods || [],
+        recyclable: apiResponse.recyclable || false,
+        donation_worthy: apiResponse.donation_worthy || false,
+        user_lat: currentLocation?.lat || null,
+        user_lon: currentLocation?.lon || null,
+        location_query: apiResponse.location_query || '',
+        location_suggestions: apiResponse.suggestions || [],
         user_id: user.id,
       };
       try {
         await createClassification(classification, user.id);
       } catch (e) {
         console.error('Failed to save classification to Supabase:', e);
+        console.error('Classification data:', classification);
+        console.error('API Response:', apiResponse);
       }
     }
 
@@ -380,15 +388,25 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                             <span>Nearby Disposal Locations</span>
                           </h4>
                           <div className="space-y-3">
-                            {result.suggestions.slice(0, 3).map((location, index) => (
+                            {result.suggestions.slice(0, 5).map((location, index) => (
                               <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg">
                                 <div className="flex-1">
                                   <p className="font-medium text-gray-900 dark:text-white text-sm">
                                     {location.name}
+                                    {location.rating && (
+                                      <span className="ml-2 text-yellow-500 text-xs">
+                                        ⭐{location.rating}
+                                      </span>
+                                    )}
                                   </p>
                                   <p className="text-xs text-gray-600 dark:text-gray-400">
                                     {location.distance_km}km away • {location.type}
                                   </p>
+                                  {location.address && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 line-clamp-1">
+                                      {location.address}
+                                    </p>
+                                  )}
                                 </div>
                                 <button
                                   onClick={() => window.open(`https://maps.google.com/search/${location.name}/@${location.lat},${location.lon},15z`, '_blank')}

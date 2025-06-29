@@ -1,14 +1,44 @@
-import {createClient} from '@supabase/supabase-js';
 import supabase from './supabase-client';
 
 // CREATE (make sure to include user_id)
 export async function createClassification(classification, user_id) {
-  const { data, error } = await supabase
-    .from('waste_classifications')
-    .insert([{ ...classification, user_id }])
-    .select();
-  if (error) throw error;
-  return data;
+  try {
+    // Create a dummy image record if waste_image_id is not provided
+    let waste_image_id = classification.waste_image_id;
+    
+    if (!waste_image_id) {
+      const { data: imageData, error: imageError } = await supabase
+        .from('waste_images')
+        .insert([{
+          user_id: user_id,
+          filename: 'camera_capture.jpg',
+          storage_path: `${user_id}/temp_${Date.now()}.jpg`,
+          file_size_bytes: 0,
+          mime_type: 'image/jpeg',
+          processed: true
+        }])
+        .select()
+        .single();
+      
+      if (imageError) {
+        console.error('Failed to create image record:', imageError);
+        throw imageError;
+      }
+      
+      waste_image_id = imageData.id;
+    }
+
+    const { data, error } = await supabase
+      .from('waste_classifications')
+      .insert([{ ...classification, user_id, waste_image_id }])
+      .select();
+      
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Failed to create classification:', error);
+    throw error;
+  }
 }
 
 // READ (only for this user)

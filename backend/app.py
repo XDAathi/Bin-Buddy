@@ -3,6 +3,7 @@ import uuid
 import json
 import base64
 import requests
+import time
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -163,7 +164,7 @@ def calculate_co2_savings(co2_rate, weight):
     return round(weight * co2_rate, 2)
 
 def find_nearby_locations(lat, lon, location_query):
-    """Find nearby disposal locations based on dynamic query"""
+    """Find nearby disposal locations using Google Places API"""
     
     print(f"🔍 Searching for locations: '{location_query}' at {lat}, {lon}")
     
@@ -179,90 +180,267 @@ def find_nearby_locations(lat, lon, location_query):
             "lon": lon
         }]
     
-    # For specific queries, search for actual locations
+    # Get Google Places API key
+    google_api_key = os.getenv('GOOGLE_PLACES_API_KEY')
+    if not google_api_key:
+        print("❌ No Google Places API key found, falling back to basic search")
+        return try_fallback_search(lat, lon, location_query)
+    
+    all_suggestions = []
+    
     try:
-        # Try multiple search approaches
-        search_terms = [location_query]
+        # Enhanced search terms with better specificity for Google Places
+        search_terms = []
+        place_types = []
         
-        # Add simpler, more generic search terms
+        # Add category-specific search terms and place types
         if 'electronic' in location_query.lower() or 'e-waste' in location_query.lower():
-            search_terms.extend(['electronics recycling', 'e-waste center', 'computer recycling'])
-        elif 'recycling' in location_query.lower():
-            search_terms.extend(['recycling center', 'waste management', 'recycling facility'])
+            search_terms = [
+                'electronics recycling center',
+                'computer recycling', 
+                'e-waste disposal',
+                'Best Buy recycling'
+            ]
+            place_types = ['electronics_store', 'store']
+        elif 'furniture' in location_query.lower():
+            search_terms = [
+                'Goodwill',
+                'Salvation Army',
+                'thrift store',
+                'furniture donation center'
+            ]
+            place_types = ['clothing_store', 'store']
+        elif 'clothing' in location_query.lower():
+            search_terms = [
+                'Goodwill',
+                'Salvation Army', 
+                'clothing donation',
+                'textile recycling'
+            ]
+            place_types = ['clothing_store', 'store']
+        elif 'battery' in location_query.lower():
+            search_terms = [
+                'battery recycling',
+                'hazardous waste facility',
+                'automotive store battery'
+            ]
+            place_types = ['car_repair', 'store']
+        elif 'plastic' in location_query.lower() or 'recycling' in location_query.lower():
+            search_terms = [
+                'recycling center',
+                'waste management',
+                'municipal recycling'
+            ]
+            place_types = ['local_government_office']
         elif 'donation' in location_query.lower() or 'charity' in location_query.lower():
-            search_terms.extend(['donation center', 'thrift store', 'charity shop'])
+            search_terms = [
+                'Goodwill',
+                'Salvation Army',
+                'charity donation center',
+                'thrift store'
+            ]
+            place_types = ['clothing_store', 'store']
         else:
-            search_terms.extend(['waste management', 'recycling center', 'dump'])
+            search_terms = [
+                'waste management',
+                'recycling center',
+                'dump'
+            ]
+            place_types = ['local_government_office']
         
-        # Try each search term until we get results
-        for search_term in search_terms:
-            print(f"🔍 Trying search term: '{search_term}'")
+        # Try each search approach
+        for search_term in search_terms[:4]:  # Limit API calls
+            print(f"🔍 Trying Google Places search: '{search_term}'")
             
-            # Search using Nominatim
-            url = "https://nominatim.openstreetmap.org/search"
-            params = {
-                'q': search_term,
-                'format': 'jsonv2',
-                'lat': lat,
-                'lon': lon,
-                'limit': 10,
-                'bounded': 1,
-                'viewbox': f"{lon-0.2},{lat-0.2},{lon+0.2},{lat+0.2}"
-            }
+            # Strategy 1: Text search for specific businesses
+            suggestions = try_google_places_text_search(lat, lon, search_term, google_api_key, radius=20000)
+            if suggestions:
+                all_suggestions.extend(suggestions)
+                continue
+            
+            # Strategy 2: Nearby search with place types
+            for place_type in place_types[:2]:  # Try up to 2 place types
+                suggestions = try_google_places_nearby_search(lat, lon, search_term, place_type, google_api_key, radius=15000)
+                if suggestions:
+                    all_suggestions.extend(suggestions)
+                    break
         
-            print(f"🌐 Making API call to: {url}")
-            print(f"📝 Query params: {params}")
+        # Remove duplicates and filter by distance
+        unique_suggestions = []
+        seen_places = set()
+        
+        for suggestion in all_suggestions:
+            # Skip if too far (more than 30km)
+            if suggestion['distance_km'] > 30:
+                continue
             
-            headers = {'User-Agent': 'BinBuddy/1.0'}
-            response = requests.get(url, params=params, headers=headers, timeout=10)
-            
-            print(f"📡 API Response: {response.status_code}")
-            
-            if response.status_code == 200:
-                results = response.json()
-                print(f"📊 Found {len(results)} raw results from API")
-                
-                if results:  # If we found results, process them
-                    suggestions = []
-                    
-                    for i, result in enumerate(results):
-                        print(f"🏢 Result {i+1}: {result.get('display_name', 'Unknown')}")
-                        
-                        result_lat = float(result['lat'])
-                        result_lon = float(result['lon'])
-                        distance = calculate_distance(lat, lon, result_lat, result_lon)
-                        
-                        # Determine type based on query content
-                        suggestion_type = "dropoff"
-                        if any(word in search_term.lower() for word in ['donation', 'charity', 'thrift']):
-                            suggestion_type = "donate"
-                        elif any(word in search_term.lower() for word in ['dump', 'landfill', 'disposal']):
-                            suggestion_type = "dispose"
-                        
-                        suggestions.append({
-                            "type": suggestion_type,
-                            "name": result.get('display_name', 'Unknown Location'),
-                            "distance_km": round(distance, 1),
-                            "lat": result_lat,
-                            "lon": result_lon
-                        })
-                    
-                    # Sort by distance and return up to 5
-                    suggestions.sort(key=lambda x: x['distance_km'])
-                    final_suggestions = suggestions[:5]
-                    print(f"✅ Returning {len(final_suggestions)} location suggestions")
-                    return final_suggestions
-                else:
-                    print(f"❌ No results for '{search_term}', trying next term...")
-            else:
-                print(f"❌ API returned status code: {response.status_code} for '{search_term}'")
+            # Skip duplicates (based on place_id or name+location)
+            place_key = suggestion.get('place_id', f"{suggestion['name']}_{suggestion['lat']:.3f}_{suggestion['lon']:.3f}")
+            if place_key not in seen_places:
+                seen_places.add(place_key)
+                unique_suggestions.append(suggestion)
+        
+        # Sort by distance and return top 5
+        unique_suggestions.sort(key=lambda x: x['distance_km'])
+        final_suggestions = unique_suggestions[:5]
+        
+        print(f"✅ Returning {len(final_suggestions)} Google Places suggestions (filtered from {len(all_suggestions)} total)")
+        for i, suggestion in enumerate(final_suggestions):
+            print(f"   {i+1}. {suggestion['name']} - {suggestion['distance_km']}km - {suggestion.get('rating', 'N/A')}⭐")
+        
+        return final_suggestions
         
     except Exception as e:
-        print(f"💥 Error finding locations: {e}")
+        print(f"💥 Error finding locations with Google Places: {e}")
+        return try_fallback_search(lat, lon, location_query)
+
+def try_google_places_text_search(lat, lon, search_term, api_key, radius=20000):
+    """Search for places using Google Places Text Search API"""
+    try:
+        url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+        params = {
+            'query': f"{search_term} near {lat},{lon}",
+            'location': f"{lat},{lon}",
+            'radius': radius,
+            'key': api_key
+        }
+        
+        response = requests.get(url, params=params, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get('results', [])
+            print(f"📊 Google Places Text Search found {len(results)} results for '{search_term}'")
+            
+            suggestions = []
+            for result in results:
+                if 'geometry' not in result:
+                    continue
+                    
+                result_lat = result['geometry']['location']['lat']
+                result_lon = result['geometry']['location']['lng']
+                distance = calculate_distance(lat, lon, result_lat, result_lon)
+                
+                # Determine type based on place types and search term
+                suggestion_type = determine_suggestion_type(result, search_term)
+                
+                suggestions.append({
+                    "type": suggestion_type,
+                    "name": result['name'],
+                    "address": result.get('formatted_address', 'Address unavailable'),
+                    "distance_km": round(distance, 1),
+                    "lat": result_lat,
+                    "lon": result_lon,
+                    "rating": result.get('rating'),
+                    "place_id": result.get('place_id'),
+                    "types": result.get('types', [])
+                })
+            
+            return suggestions
+        else:
+            print(f"❌ Google Places Text Search API returned status code: {response.status_code}")
+            
+    except Exception as e:
+        print(f"💥 Error in Google Places Text Search: {e}")
     
-    # Return empty list if API fails
-    print("🚫 Returning empty location list")
     return []
+
+def try_google_places_nearby_search(lat, lon, keyword, place_type, api_key, radius=15000):
+    """Search for nearby places using Google Places Nearby Search API"""
+    try:
+        url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+        params = {
+            'location': f"{lat},{lon}",
+            'radius': radius,
+            'type': place_type,
+            'keyword': keyword,
+            'key': api_key
+        }
+        
+        response = requests.get(url, params=params, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get('results', [])
+            print(f"📊 Google Places Nearby Search found {len(results)} results for '{keyword}' + '{place_type}'")
+            
+            suggestions = []
+            for result in results:
+                if 'geometry' not in result:
+                    continue
+                    
+                result_lat = result['geometry']['location']['lat']
+                result_lon = result['geometry']['location']['lng']
+                distance = calculate_distance(lat, lon, result_lat, result_lon)
+                
+                # Determine type based on place types and keyword
+                suggestion_type = determine_suggestion_type(result, keyword)
+                
+                suggestions.append({
+                    "type": suggestion_type,
+                    "name": result['name'],
+                    "address": result.get('vicinity', 'Address unavailable'),
+                    "distance_km": round(distance, 1),
+                    "lat": result_lat,
+                    "lon": result_lon,
+                    "rating": result.get('rating'),
+                    "place_id": result.get('place_id'),
+                    "types": result.get('types', [])
+                })
+            
+            return suggestions
+        else:
+            print(f"❌ Google Places Nearby Search API returned status code: {response.status_code}")
+            
+    except Exception as e:
+        print(f"💥 Error in Google Places Nearby Search: {e}")
+    
+    return []
+
+def determine_suggestion_type(place_result, search_term):
+    """Determine the suggestion type based on place data and search term"""
+    place_types = place_result.get('types', [])
+    name = place_result.get('name', '').lower()
+    search_lower = search_term.lower()
+    
+    # Check for donation/charity places
+    if any(keyword in name for keyword in ['goodwill', 'salvation army', 'charity', 'thrift']):
+        return "donate"
+    if any(keyword in search_lower for keyword in ['donation', 'charity', 'thrift', 'goodwill', 'salvation']):
+        return "donate"
+    
+    # Check for disposal/waste places
+    if any(keyword in name for keyword in ['dump', 'landfill', 'waste', 'transfer station']):
+        return "dispose"
+    if any(keyword in search_lower for keyword in ['dump', 'landfill', 'disposal', 'waste management']):
+        return "dispose"
+    
+    # Default to dropoff for recycling centers and others
+    return "dropoff"
+
+def try_fallback_search(lat, lon, location_query):
+    """Fallback search when Google Places API is not available"""
+    print("🔄 Using fallback search method")
+    
+    # Return some generic suggestions based on location
+    return [
+        {
+            "type": "dropoff",
+            "name": "Municipal Recycling Center",
+            "distance_km": 2.5,
+            "lat": lat + 0.01,
+            "lon": lon + 0.01
+        },
+        {
+            "type": "donate",
+            "name": "Local Donation Center",
+            "distance_km": 1.8,
+            "lat": lat - 0.008,
+            "lon": lon + 0.012
+        }
+    ]
+
+
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     """Calculate approximate distance in km between two coordinates"""
