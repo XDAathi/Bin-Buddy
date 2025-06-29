@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, Loader2, CheckCircle, Heart, TreePine } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import supabase from '../supabase-client';
+import { upsertUser } from '../supabase-crud';
 
 // Import UN SDG Images
 import sdg3 from '../assets/sdg_icons_color_goal_3.svg';
@@ -155,6 +157,17 @@ const HomeTab = ({ onClassificationComplete, user }) => {
     setIsAnalyzing(true);
     try {
       // Get user location
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user;
+      if (!user?.id) throw new Error('User not authenticated');
+
+      // 2. Add user to users table (if not exists)
+      await upsertUser({
+        id: user.id,
+        email: user.email,
+        username: user.email?.split('@')[0] || 'User'
+      });
+      
       const currentLocation = await new Promise((resolve) => {
         navigator.geolocation.getCurrentPosition(
           (position) => {
