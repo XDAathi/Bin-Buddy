@@ -226,9 +226,9 @@ def find_nearby_locations(lat, lon, location_query):
             seen_places.add(place_key)
             unique_suggestions.append(suggestion)
     
-    # Sort by distance and return top 5
+    # Sort by distance and return top 10
     unique_suggestions.sort(key=lambda x: x['distance_km'])
-    final_suggestions = unique_suggestions[:5]
+    final_suggestions = unique_suggestions[:10]
     
     print(f"✅ Returning {len(final_suggestions)} FREE API suggestions (filtered from {len(all_suggestions)} total)")
     for i, suggestion in enumerate(final_suggestions):
@@ -236,10 +236,10 @@ def find_nearby_locations(lat, lon, location_query):
         print(f"   {i+1}. {suggestion['name']} - {suggestion['distance_km']}km{rating_text}")
     
     # If we still don't have enough results, add some generic ones
-    if len(final_suggestions) < 2:
+    if len(final_suggestions) < 5:
         final_suggestions.extend(get_generic_suggestions(lat, lon, location_query))
     
-    return final_suggestions[:5]
+    return final_suggestions[:10]
 
 def try_overpass_api(lat, lon, location_query):
     """Search using Overpass API - completely FREE and powerful OpenStreetMap queries"""
@@ -336,7 +336,7 @@ def try_overpass_api(lat, lon, location_query):
                 if suggestions:
                     break  # Found results, no need to try more queries
         
-        return suggestions[:5]  # Return top 5
+        return suggestions[:10]  # Return top 10
         
     except Exception as e:
         print(f"💥 Error with Overpass API: {e}")
@@ -392,7 +392,7 @@ def try_here_api(lat, lon, location_query):
                 if suggestions:
                     break  # Found results
         
-        return suggestions[:5]
+        return suggestions[:10]
         
     except Exception as e:
         print(f"💥 Error with HERE API: {e}")
@@ -457,7 +457,7 @@ def try_foursquare_api(lat, lon, location_query):
                 if suggestions:
                     break
         
-        return suggestions[:5]
+        return suggestions[:10]
         
     except Exception as e:
         print(f"💥 Error with Foursquare API: {e}")
