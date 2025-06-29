@@ -375,7 +375,7 @@ const HistoryTab = ({ user }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.4 }}
-        className="grid md:grid-cols-4 gap-6"
+        className="grid md:grid-cols-3 gap-6 justify-center"
       >
         <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl p-6 shadow-lg border border-blue-200/30 dark:border-blue-700/30 backdrop-blur-sm">
           <div className="space-y-4 text-center">
@@ -415,20 +415,6 @@ const HistoryTab = ({ user }) => {
             </h3>
             <p className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
               {totalCO2Saved.toFixed(1)}kg
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-teal-50 to-green-50 dark:from-teal-900/20 dark:to-green-900/20 rounded-2xl p-6 shadow-lg border border-teal-200/30 dark:border-teal-700/30 backdrop-blur-sm">
-          <div className="space-y-4 text-center">
-            <div className="p-3 bg-gradient-to-br from-teal-500/20 to-green-500/20 rounded-xl shadow-lg w-fit mx-auto">
-              <ShieldCheck className="h-8 w-8 text-teal-600 dark:text-teal-400" />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-              Actual Impact
-            </h3>
-            <p className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-green-600 bg-clip-text text-transparent">
-              {completedCO2.toFixed(1)}kg
             </p>
           </div>
         </div>
