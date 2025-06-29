@@ -140,6 +140,14 @@ def classify_image_with_gemini(image_data):
         if '/' not in result['icon']:
             result['icon'] = 'material/MdDelete'
         
+        # Clean up confidence value (remove % symbols and ensure valid values)
+        if 'confidence' in result:
+            confidence = str(result['confidence']).lower().replace('%', '').strip()
+            if confidence not in ['low', 'medium', 'high']:
+                result['confidence'] = 'medium'
+            else:
+                result['confidence'] = confidence
+        
         return result
         
     except Exception as e:

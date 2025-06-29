@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, Loader2, CheckCircle, Heart, TreePine } from 'lucide-react';
+import * as MdIcons from 'react-icons/md';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import supabase from '../supabase-client';
@@ -167,6 +168,26 @@ const MapComponent = ({ userLocation, locations }) => {
 };
 
 const HomeTab = ({ onClassificationComplete, user }) => {
+  // Convert material icon names to React Material Design icons
+  const getIconFromMaterialName = (iconName, size = 24, color = 'currentColor') => {
+    if (!iconName || typeof iconName !== 'string') {
+      return <MdIcons.MdRecycling size={size} color={color} />;
+    }
+    
+    // Extract the icon name from the format "material/MdIconName"
+    const iconKey = iconName.replace('material/', '');
+    
+    // Get the icon component from react-icons/md
+    const IconComponent = MdIcons[iconKey];
+    
+    if (IconComponent) {
+      return <IconComponent size={size} color={color} />;
+    }
+    
+    // Fallback icon if the specified icon doesn't exist
+    return <MdIcons.MdRecycling size={size} color={color} />;
+  };
+
   // Helper function to determine if a color is light or dark
   const isLightColor = (color) => {
     if (!color) return false; // Default green is dark
@@ -420,19 +441,19 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                     </div>
                   ) : (
                     <div className="space-y-6">
-                      {/* Main Classification Header */}
+                                            {/* Main Classification Header */}
                       <div 
                         className="rounded-xl p-6 border-2 shadow-lg"
                         style={{ 
-                          backgroundColor: result.color || '#10B981',
+                          backgroundColor: `${result.color || '#10B981'}80`,
                           borderColor: result.color || '#10B981',
-                          color: isLightColor(result.color) ? '#111827' : '#FFFFFF'
+                          color: '#FFFFFF'
                         }}
                       >
                         <div className="text-center space-y-4">
                           <div className="flex items-center justify-center space-x-4">
-                            <div className="text-5xl bg-white/20 rounded-full p-3 backdrop-blur-sm">
-                              {result.icon || '♻️'}
+                            <div className="bg-white/20 rounded-full p-4 backdrop-blur-sm">
+                              {getIconFromMaterialName(result.icon, 48, '#FFFFFF')}
                             </div>
                             <div>
                               <h3 className="text-3xl font-bold mb-2">
@@ -440,7 +461,6 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                               </h3>
                               <div className="flex items-center justify-center space-x-4 text-sm font-medium opacity-90">
                                 <span className="bg-white/20 px-3 py-1 rounded-full">{result.main_category}</span>
-                                <span className="bg-white/20 px-3 py-1 rounded-full">{result.confidence}% confident</span>
                                 <span className="bg-white/20 px-3 py-1 rounded-full">{result.weight}kg</span>
                               </div>
                             </div>
@@ -449,7 +469,10 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                           {/* Environmental Impact */}
                           <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 border border-white/30">
                             <div className="flex items-center justify-center space-x-2 mb-3">
-                              <span className="text-2xl">🌱</span>
+                              <TreePine 
+                                size={24} 
+                                color='#FFFFFF' 
+                              />
                               <span className="text-lg font-bold">Environmental Impact</span>
                             </div>
                             <div className="grid grid-cols-2 gap-6">
