@@ -81,8 +81,8 @@ const HistoryTab = ({ user }) => {
   };
 
   if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      return (
+          <div className="max-w-xl mx-auto px-4 py-6">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-eco"></div>
         </div>
@@ -90,8 +90,8 @@ const HistoryTab = ({ user }) => {
     );
   }
 
-  return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      return (
+      <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
       <div className="text-center space-y-4">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">

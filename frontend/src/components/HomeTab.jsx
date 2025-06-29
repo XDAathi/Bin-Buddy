@@ -463,7 +463,7 @@ const HomeTab = ({ onClassificationComplete, user }) => {
             UN Sustainability Goals We're Supporting
           </h2>
           
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-4 gap-6">
             {/* Goal 12: Responsible Consumption and Production */}
             <div className="flip-card group">
               <div className="flip-card-inner">

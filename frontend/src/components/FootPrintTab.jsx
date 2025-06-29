@@ -105,7 +105,7 @@ const FootPrintTab = ({ user }) => {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-xl mx-auto px-4 py-6">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-eco"></div>
         </div>
@@ -114,7 +114,7 @@ const FootPrintTab = ({ user }) => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
       <div className="text-center space-y-4">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -148,7 +148,7 @@ const FootPrintTab = ({ user }) => {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div className="card text-center">
           <div className="space-y-3">
             <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto">
