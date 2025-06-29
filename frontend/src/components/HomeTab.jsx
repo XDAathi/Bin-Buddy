@@ -332,16 +332,13 @@ const HomeTab = ({ onClassificationComplete, user }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
-<<<<<<< Updated upstream
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
-  const videoRef = useRef(null);
-=======
   const [isDisposalOpen, setIsDisposalOpen] = useState(false);
   const [showAllLocations, setShowAllLocations] = useState(false);
->>>>>>> Stashed changes
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const videoRef = useRef(null);
 
   const openDesktopCamera = async () => {
     try {
@@ -476,6 +473,12 @@ const HomeTab = ({ onClassificationComplete, user }) => {
     setResult(null);
     setIsDisposalOpen(false);
     setShowAllLocations(false);
+    // Close camera modal if open
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+    }
+    setShowCameraModal(false);
+    setCameraStream(null);
   };
 
   return (
@@ -502,25 +505,18 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                   </div>
                 </div>
 
-<<<<<<< Updated upstream
-              {/* Enhanced Upload buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                                  <button
+                {/* Enhanced Upload buttons */}
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <button
                     onClick={() => {
                       if (window.innerWidth > 768) {
-                        // Desktop: open camera modal (you must have openDesktopCamera defined in your component)
+                        // Desktop: open camera modal
                         openDesktopCamera();
                       } else {
                         // Mobile: open native camera/file picker
                         cameraInputRef.current?.click();
                       }
                     }}
-=======
-                {/* Enhanced Upload buttons */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button
-                    onClick={() => cameraInputRef.current?.click()}
->>>>>>> Stashed changes
                     className="btn-primary flex items-center justify-center space-x-3 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                   >
                     <Camera className="h-6 w-6" />
