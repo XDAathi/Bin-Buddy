@@ -168,13 +168,46 @@ export async function getUserClassificationsWithImages(userId, limit = 20) {
     return { data: null, error };
   }
 
-  // Add public URLs for images
-  const dataWithUrls = data.map(classification => ({
-    ...classification,
-    image_url: classification.waste_images 
-      ? supabase.storage.from(BUCKET_NAME).getPublicUrl(classification.waste_images.storage_path).data.publicUrl
-      : null
-  }));
+  // Add signed URLs for images (better for private storage)
+  const dataWithUrls = await Promise.all(
+    data.map(async classification => {
+      let image_url = null;
+      
+      if (classification.waste_images) {
+        try {
+          console.log('Processing image for classification:', classification.id, 'Storage path:', classification.waste_images.storage_path);
+          
+          // Try to get a signed URL first (works with private storage)
+          const { data: signedUrl, error: signedError } = await supabase.storage
+            .from(BUCKET_NAME)
+            .createSignedUrl(classification.waste_images.storage_path, 3600); // 1 hour expiry
+            
+          if (!signedError && signedUrl) {
+            image_url = signedUrl.signedUrl;
+            console.log('Generated signed URL:', image_url);
+          } else {
+            console.log('Signed URL failed, trying public URL. Error:', signedError);
+            // Fallback to public URL
+            const { data: publicUrl } = supabase.storage
+              .from(BUCKET_NAME)
+              .getPublicUrl(classification.waste_images.storage_path);
+            image_url = publicUrl.publicUrl;
+            console.log('Generated public URL:', image_url);
+          }
+        } catch (err) {
+          console.warn('Error generating image URL for classification', classification.id, ':', err);
+          // Keep image_url as null - will use fallback icon
+        }
+      } else {
+        console.log('No waste_images data for classification:', classification.id);
+      }
+      
+      return {
+        ...classification,
+        image_url
+      };
+    })
+  );
 
   return { data: dataWithUrls, error: null };
 }
@@ -195,4 +228,29 @@ export async function getUserStats(userId) {
   }
 
   return data;
+}
+
+/**
+ * Update completion status of a waste classification
+ */
+export async function updateClassificationCompletion(classificationId, completed, userId) {
+  try {
+    const { data, error } = await supabase
+      .from('waste_classifications')
+      .update({ completed: completed })
+      .eq('id', classificationId)
+      .eq('user_id', userId) // Ensure user can only update their own items
+      .select();
+
+    if (error) {
+      console.error('Error updating completion status:', error);
+      return { success: false, error };
+    }
+
+    console.log('Successfully updated completion status:', data);
+    return { success: true, data };
+  } catch (err) {
+    console.error('Unexpected error updating completion status:', err);
+    return { success: false, error: err };
+  }
 } 

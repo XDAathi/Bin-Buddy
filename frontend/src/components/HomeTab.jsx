@@ -996,10 +996,11 @@ const HomeTab = ({ onClassificationComplete, user }) => {
 
       {/* Camera Modal (for desktop) */}
       {showCameraModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-          <div className="bg-white rounded-xl p-6 shadow-xl flex flex-col items-center max-w-full"
-               style={{ width: 500, maxWidth: '90vw' }}>
-            <video ref={videoRef} className="rounded-lg mb-4" autoPlay playsInline style={{ width: 400, maxWidth: '80vw' }} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90">
+          <div className="flex flex-col items-center max-w-full p-8">
+            <div className="bg-white rounded-xl p-2 shadow-2xl mb-6">
+              <video ref={videoRef} className="rounded-lg" autoPlay playsInline style={{ width: 400, maxWidth: '80vw' }} />
+            </div>
             <div className="flex gap-4">
               <button
                 onClick={() => {
@@ -1022,7 +1023,7 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                     setCameraStream(null);
                   }, 'image/jpeg');
                 }}
-                className="btn-primary px-6 py-2 rounded-lg font-semibold"
+                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-semibold text-lg shadow-lg transition-colors"
               >
                 Capture
               </button>
@@ -1032,7 +1033,7 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                   setShowCameraModal(false);
                   setCameraStream(null);
                 }}
-                className="btn-secondary px-6 py-2 rounded-lg font-semibold"
+                className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 rounded-lg font-semibold text-lg shadow-lg transition-colors"
               >
                 Cancel
               </button>
