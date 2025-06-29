@@ -7,10 +7,24 @@
     margin: 0;
     padding: 0;
     font-family: 'Inter', system-ui, sans-serif;
+    height: 100%;
+    overscroll-behavior: none;
   }
   
   * {
     box-sizing: border-box;
+  }
+  
+  body {
+    overflow: auto;
+    -webkit-overflow-scrolling: auto;
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  html, body {
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: auto;
   }
 }
 
@@ -32,6 +46,7 @@
 .leaflet-container {
   background: #f5f5f5;
   border-radius: 0.5rem;
+  z-index: 0 !important;
 }
 
 .dark .leaflet-container {

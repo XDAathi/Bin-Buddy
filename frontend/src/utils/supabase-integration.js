@@ -452,4 +452,25 @@ export async function getUserFirstClassificationDate(userId) {
   }
 
   return new Date(data[0].created_at);
+}
+
+/**
+ * Delete a waste classification by id and userId
+ */
+export async function deleteClassification(classificationId, userId) {
+  try {
+    const { error } = await supabase
+      .from('waste_classifications')
+      .delete()
+      .eq('id', classificationId)
+      .eq('user_id', userId);
+    if (error) {
+      console.error('Error deleting classification:', error);
+      return { success: false, error };
+    }
+    return { success: true };
+  } catch (err) {
+    console.error('Unexpected error deleting classification:', err);
+    return { success: false, error: err };
+  }
 } 

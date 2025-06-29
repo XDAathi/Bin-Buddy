@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   TrendingUp, Award, Target, TreePine, Recycle, BarChart3, PieChart as PieChartIcon, Zap, Globe, Calendar, 
   Users, Star, Trophy, Medal, Flame, Sparkles, Check, MapPin, Activity, Leaf, Trash2, Factory,
-  LineChart as LineChartIcon, BarChart as BarChartIcon, Wind, Droplets, Sun
+  LineChart as LineChartIcon, BarChart as BarChartIcon, Wind, Droplets, Sun, Image as ImageIcon
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Cell, 
   LineChart, Line, Area, AreaChart, Pie, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart 
 } from 'recharts';
-import { motion } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import { 
   getUserStats, 
@@ -16,8 +15,12 @@ import {
   getRealCategoryBreakdown, 
   getRealDailyActivity, 
   getRealMonthlyTrends,
-  getUserFirstClassificationDate
+  getUserFirstClassificationDate,
+  getUserClassificationsWithImages
 } from '../utils/supabase-integration';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { motion } from 'framer-motion';
 
 const FootPrintTab = ({ user }) => {
   const [stats, setStats] = useState({
@@ -37,6 +40,7 @@ const FootPrintTab = ({ user }) => {
   const [aiSummary, setAiSummary] = useState('');
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [previousAchievements, setPreviousAchievements] = useState([]);
+  const [allClassifications, setAllClassifications] = useState([]);
 
   // More detailed and engaging achievement system
   const achievementSystem = [
@@ -138,6 +142,15 @@ const FootPrintTab = ({ user }) => {
     fetchRealStats();
   }, [user]);
 
+  useEffect(() => {
+    const fetchAllClassifications = async () => {
+      if (!user || !user.id) return;
+      const { data } = await getUserClassificationsWithImages(user.id, 100);
+      setAllClassifications(data || []);
+    };
+    fetchAllClassifications();
+  }, [user]);
+
   const generateAISummary = async (stats, categoryBreakdown, achievements) => {
     setLoadingSummary(true);
     try {
@@ -230,9 +243,9 @@ const FootPrintTab = ({ user }) => {
     );
   }
 
-  const EmptyState = ({ icon: Icon, message }) => (
+  const EmptyState = ({ icon, message }) => (
     <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500">
-      <Icon className="w-16 h-16 mb-4 opacity-50" />
+      {React.createElement(icon, { className: "w-16 h-16 mb-4 opacity-50" })}
       <p className="text-center">{message}</p>
     </div>
   );
@@ -254,7 +267,7 @@ const FootPrintTab = ({ user }) => {
   };
 
   const RADIAN = Math.PI / 180;
-  const CustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, ...props }) => {
+  const CustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
@@ -266,7 +279,7 @@ const FootPrintTab = ({ user }) => {
     );
   };
 
-  const CardLayout = ({ title, icon: Icon, children }) => (
+  const CardLayout = ({ title, icon, children }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -274,14 +287,134 @@ const FootPrintTab = ({ user }) => {
       className="card"
     >
       <div className="flex items-center space-x-3 mb-4">
-        <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-          <Icon className="w-5 h-5 text-gray-500" />
-        </div>
+        {icon && (
+          <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+            {React.createElement(icon, { className: "w-5 h-5 text-gray-500" })}
+          </div>
+        )}
         <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{title}</h3>
       </div>
       {children}
     </motion.div>
   );
+
+  // MapComponent (adapted from HomeTab)
+  const createCustomIcon = (color) => {
+    return L.divIcon({
+      html: `
+        <div style="background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%); width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1); position: relative;">
+          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; background-color: white; border-radius: 50%;"></div>
+        </div>
+      `,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      popupAnchor: [0, -12],
+      className: 'custom-marker'
+    });
+  };
+  const userIcon = L.divIcon({
+    html: `<div style="background: linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%); width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3), 0 2px 4px rgba(0,0,0,0.1); position: relative; animation: pulse 2s infinite;"><div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 6px; height: 6px; background-color: white; border-radius: 50%;"></div></div><style>@keyframes pulse {0% { box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3), 0 2px 4px rgba(0,0,0,0.1); }50% { box-shadow: 0 4px 12px rgba(59, 130, 246, 0.6), 0 2px 4px rgba(0,0,0,0.2); }100% { box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3), 0 2px 4px rgba(0,0,0,0.1); }}</style>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    className: 'user-marker'
+  });
+  const MapComponent = ({ userLocation, locations }) => {
+    const mapRef = useRef(null);
+    const mapInstanceRef = useRef(null);
+    useEffect(() => {
+      if (!mapRef.current || !userLocation || !locations) return;
+      if (mapInstanceRef.current) {
+        try { mapInstanceRef.current.remove(); } catch { /* ignore cleanup errors */ }
+        mapInstanceRef.current = null;
+      }
+      if (mapRef.current) { mapRef.current._leaflet_id = null; mapRef.current.innerHTML = ''; }
+      setTimeout(() => {
+        try {
+          mapInstanceRef.current = L.map(mapRef.current, { attributionControl: false }).setView([userLocation.lat, userLocation.lon], 12);
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap contributors © CARTO', subdomains: 'abcd', maxZoom: 19 }).addTo(mapInstanceRef.current);
+          L.marker([userLocation.lat, userLocation.lon], { icon: userIcon }).addTo(mapInstanceRef.current).bindPopup('You are here');
+          const validLocations = locations.filter(l => l && typeof l.lat === 'number' && typeof l.lon === 'number');
+          validLocations.forEach(loc => {
+            const markerIcon = createCustomIcon(loc.type === 'donate' ? '#34D399' : loc.type === 'dropoff' ? '#F59E0B' : loc.type === 'dispose' ? '#EF4444' : '#2563EB');
+            L.marker([loc.lat, loc.lon], { icon: markerIcon }).addTo(mapInstanceRef.current);
+          });
+          // Ensure interactions are enabled (in case Leaflet default settings were altered elsewhere)
+          mapInstanceRef.current.dragging.enable();
+          mapInstanceRef.current.touchZoom.enable();
+          mapInstanceRef.current.doubleClickZoom.enable();
+          mapInstanceRef.current.scrollWheelZoom.enable();
+          mapInstanceRef.current.boxZoom.enable();
+          mapInstanceRef.current.keyboard.enable();
+        } catch (e) { console.error('Map init error', e); }
+      }, 50);
+      // Cleanup
+      return () => {
+        if (mapInstanceRef.current) {
+          try { mapInstanceRef.current.remove(); } catch { /* ignore */ }
+          mapInstanceRef.current = null;
+        }
+      };
+    }, [userLocation, locations]);
+    return <div ref={mapRef} className="w-full h-full"/>;
+  };
+
+  // Gallery component for monthly images
+  const Gallery = ({ items }) => {
+    const buildSrcs = (item) => {
+      if (item.image_url) return [item.image_url];
+      if (item.waste_image_id) {
+        const base = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${item.waste_image_id}`;
+        return [`${base}.jpg`, `${base}.webp`, `${base}.png`];
+      }
+      return [];
+    };
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
+        {items.length === 0 ? (
+          <div className="col-span-full text-center text-gray-400 dark:text-gray-500">No images uploaded this month.</div>
+        ) : (
+          items.map((item, idx) => {
+            const srcs = buildSrcs(item);
+            if (srcs.length === 0) return null;
+            return (
+              <div key={idx} className="relative w-full h-32">
+                <picture>
+                  <source srcSet={srcs[1] || srcs[0]} type="image/webp" />
+                  <img
+                    src={srcs[0]}
+                    alt={item.display_name || 'Uploaded item'}
+                    className="w-full h-32 object-cover rounded-lg shadow-md"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      const fallback = e.target.parentNode.parentNode.querySelector('.fallback-icon');
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                </picture>
+                <div className="fallback-icon absolute inset-0 w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg" style={{ display: 'none' }}>
+                  <ImageIcon className="w-10 h-10 text-gray-400" />
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    );
+  };
+
+  // Helper: get all locations from allClassifications
+  const allLocations = allClassifications
+    .flatMap(item => item.location_suggestions || [])
+    .filter(loc => loc && typeof loc.lat === 'number' && typeof loc.lon === 'number');
+  // Center map on most recent drop-off location, else default to NYC
+  const mapCenter = allLocations.length > 0
+    ? { lat: allLocations[0].lat, lon: allLocations[0].lon }
+    : { lat: 40.7128, lon: -74.0060 };
+  // Helper: get all images from current month
+  const now = new Date();
+  const currentMonth = now.toISOString().slice(0, 7); // YYYY-MM
+  const galleryItems = allClassifications
+    .filter(item => (item.image_url || item.waste_image_id) && item.created_at && item.created_at.slice(0, 7) === currentMonth);
 
   return (
     <>
@@ -379,24 +512,15 @@ const FootPrintTab = ({ user }) => {
           {/* Charts Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Weekly Progress Chart */}
-            <CardLayout title="Weekly Progress" icon={BarChartIcon}>
-              {stats.progressData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={stats.progressData}>
-                    <defs>
-                      <linearGradient id="colorProgress" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#82ca9d" stopOpacity={0.1}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                    <XAxis dataKey="week" tick={{ fill: '#666' }} />
-                    <YAxis tick={{ fill: '#666' }} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="items" stroke="#82ca9d" fillOpacity={1} fill="url(#colorProgress)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : <EmptyState icon={BarChartIcon} message="Analyze items to see your weekly progress." />}
+            <CardLayout title="Drop-off Locations Map" icon={BarChartIcon}>
+              <div style={{ height: 320, borderRadius: 16, overflow: 'hidden' }}>
+                {user && allLocations.length > 0 ? (
+                  <MapComponent
+                    userLocation={mapCenter}
+                    locations={allLocations}
+                  />
+                ) : <EmptyState icon={MapPin} message="No drop-off locations yet. Add items to see your map!" />}
+              </div>
             </CardLayout>
 
             {/* Category Pie Chart */}
@@ -412,8 +536,8 @@ const FootPrintTab = ({ user }) => {
                       cy="50%"
                       outerRadius={100}
                       fill="#8884d8"
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                       labelLine={false}
-                      label={<CustomizedLabel />}
                     >
                       {stats.categoryBreakdown.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
@@ -428,30 +552,20 @@ const FootPrintTab = ({ user }) => {
 
           {/* New row for more charts */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <CardLayout title="Monthly Trends" icon={Calendar}>
-              {stats.monthlyTrends.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                   <ComposedChart data={stats.monthlyTrends}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                    <XAxis dataKey="month" tick={{ fill: '#666' }} />
-                    <YAxis yAxisId="left" orientation="left" stroke="#8884d8" tick={{ fill: '#666' }} />
-                    <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" tick={{ fill: '#666' }} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar yAxisId="left" dataKey="items" fill="#8884d8" name="Items" />
-                    <Line yAxisId="right" type="monotone" dataKey="co2Saved" stroke="#82ca9d" name="CO₂ Saved" />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              ) : <EmptyState icon={Calendar} message="Monthly trends will appear here." />}
+            <CardLayout title="Gallery" icon={Calendar}>
+              {user && galleryItems.length > 0 ? (
+                <Gallery items={galleryItems} />
+              ) : <EmptyState icon={Calendar} message="No images uploaded this month." />}
             </CardLayout>
             
             <CardLayout title="Category Analysis" icon={Zap}>
               {stats.radarData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <RadarChart cx="50%" cy="50%" outerRadius="80%" data={stats.radarData}>
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="subject" />
-                    <PolarRadiusAxis />
-                    <Radar name="Mike" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+                    <PolarGrid stroke="#555" strokeOpacity={0.3}/>
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#fff', fontWeight: 'bold', fontSize: 18 }} />
+                    <PolarRadiusAxis tick={{ fill: '#aaa', fontSize: 12 }} stroke="#555" />
+                    <Radar name="Category" dataKey="A" stroke="#4F46E5" strokeWidth={2} fill="#6366F1" fillOpacity={0.4} label />
                   </RadarChart>
                 </ResponsiveContainer>
               ) : <EmptyState icon={Zap} message="Category analysis requires more data." />}
@@ -460,13 +574,13 @@ const FootPrintTab = ({ user }) => {
             <CardLayout title="Daily Activity" icon={Activity}>
               {stats.dailyActivity.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={stats.dailyActivity}>
+                  <AreaChart data={stats.dailyActivity}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                     <XAxis dataKey="day" tick={{ fill: '#666' }} />
                     <YAxis tick={{ fill: '#666' }} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Line type="monotone" dataKey="items" stroke="#8884d8" />
-                  </LineChart>
+                    <Area type="monotone" dataKey="items" stroke="#8884d8" fill="#8884d8" fillOpacity={0.5} dot={{ r: 5, fill: '#fff', stroke: '#8884d8', strokeWidth: 2 }} />
+                  </AreaChart>
                 </ResponsiveContainer>
               ) : <EmptyState icon={Activity} message="Your daily activity will be shown here." />}
             </CardLayout>

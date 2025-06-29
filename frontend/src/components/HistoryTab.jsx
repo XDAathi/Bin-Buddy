@@ -4,9 +4,11 @@ import {
   Package, Heart, ChevronDown, ChevronRight, RotateCcw, Trash, CheckCircle2,
   Store, Zap, Car, Smartphone, Monitor, Sofa, Shirt, Apple, TreePine, ExternalLink
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import * as MdIcons from 'react-icons/md';
 import { getUserClassificationsWithImages } from '../supabase_integration_with_images';
-import { updateClassificationCompletion } from '../utils/supabase-integration';
+import { updateClassificationCompletion, deleteClassification } from '../utils/supabase-integration';
+import toast from 'react-hot-toast';
 
 const HistoryTab = ({ user }) => {
   const [classifications, setClassifications] = useState([]);
@@ -137,27 +139,15 @@ const HistoryTab = ({ user }) => {
 
   const toggleItemCompletion = async (itemId) => {
     if (!user) return;
-    
     const isCurrentlyCompleted = completedItems.has(itemId);
     const newCompletionStatus = !isCurrentlyCompleted;
-    
-    // Find items with same display name for bulk update
     const currentItem = classifications.find(item => item.id === itemId);
-    const itemsWithSameName = classifications.filter(item => 
-      item.display_name === currentItem?.display_name && !completedItems.has(item.id)
-    );
-    
+    const itemsWithSameName = classifications.filter(item => item.display_name === currentItem?.display_name);
     try {
-      // Update all items with same name
-      const updatePromises = itemsWithSameName.map(item => 
-        updateClassificationCompletion(item.id, newCompletionStatus, user.id)
-      );
-      
+      const updatePromises = itemsWithSameName.map(item => updateClassificationCompletion(item.id, newCompletionStatus, user.id));
       const results = await Promise.all(updatePromises);
       const successfulUpdates = results.filter(result => result.success);
-      
       if (successfulUpdates.length > 0) {
-        // Update local state for successful updates
         setCompletedItems(prev => {
           const newCompleted = new Set(prev);
           itemsWithSameName.forEach(item => {
@@ -169,19 +159,16 @@ const HistoryTab = ({ user }) => {
           });
           return newCompleted;
         });
-        
-        // Update classifications data
-        setClassifications(prev => 
-          prev.map(item => {
-            const shouldUpdate = itemsWithSameName.some(sameNameItem => sameNameItem.id === item.id);
-            return shouldUpdate ? { ...item, completed: newCompletionStatus } : item;
-          })
-        );
-        
-        console.log(`${successfulUpdates.length} items marked as ${newCompletionStatus ? 'completed' : 'incomplete'}`);
+        setClassifications(prev => prev.map(item => {
+          const shouldUpdate = itemsWithSameName.some(sameNameItem => sameNameItem.id === item.id);
+          return shouldUpdate ? { ...item, completed: newCompletionStatus } : item;
+        }));
+        toast.success(newCompletionStatus ? 'Marked as completed!' : 'Marked as incomplete!');
+      } else {
+        toast.error('Failed to update completion.');
       }
     } catch (error) {
-      console.error('Error toggling completion status:', error);
+      toast.error('Error toggling completion.');
     }
   };
 
@@ -219,13 +206,28 @@ const HistoryTab = ({ user }) => {
     }
   };
 
-  const deleteItem = (itemId) => {
+  // Async deleteItem that persists to DB
+  const deleteItem = async (itemId) => {
+    if (!user) return;
+    const originalClassifications = [...classifications];
     setClassifications(prev => prev.filter(item => item.id !== itemId));
     setCompletedItems(prev => {
       const newCompleted = new Set(prev);
       newCompleted.delete(itemId);
       return newCompleted;
     });
+    try {
+      const { success, error } = await deleteClassification(itemId, user.id);
+      if (!success) {
+        toast.error('Failed to delete item.');
+        setClassifications(originalClassifications);
+      } else {
+        toast.success('Item deleted!');
+      }
+    } catch (err) {
+      toast.error('Unexpected error deleting item.');
+      setClassifications(originalClassifications);
+    }
   };
 
   const toggleGroupExpansion = (groupKey) => {
@@ -330,18 +332,32 @@ const HistoryTab = ({ user }) => {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="max-w-7xl mx-auto px-4 py-6"
+      >
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-eco"></div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-8">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+      className="max-w-7xl mx-auto px-4 py-6 space-y-8"
+    >
       {/* Header */}
-      <div className="text-center space-y-4">
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 0.2 }}
+        className="text-center space-y-4"
+      >
         <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
           Disposal History & Progress
         </h1>
@@ -349,10 +365,15 @@ const HistoryTab = ({ user }) => {
           Track your items and group them for efficient disposal
         </p>
         <div className="w-32 h-1 bg-green-eco mx-auto rounded-full"></div>
-      </div>
+      </motion.div>
 
       {/* Enhanced Stats Cards */}
-      <div className="grid md:grid-cols-4 gap-6">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 0.4 }}
+        className="grid md:grid-cols-4 gap-6"
+      >
         <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl p-6 shadow-lg border border-blue-200/30 dark:border-blue-700/30 backdrop-blur-sm">
           <div className="space-y-4 text-center">
             <div className="p-3 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl shadow-lg w-fit mx-auto">
@@ -408,10 +429,15 @@ const HistoryTab = ({ user }) => {
             </p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Controls */}
-      <div className="bg-gradient-to-br from-white to-gray-50/50 dark:from-gray-800/50 dark:to-gray-900/50 rounded-2xl p-6 shadow-xl border border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 0.6 }}
+        className="bg-gradient-to-br from-white to-gray-50/50 dark:from-gray-800/50 dark:to-gray-900/50 rounded-2xl p-6 shadow-xl border border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm"
+      >
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1 relative">
             <div className="absolute left-4 top-1/2 transform -translate-y-1/2 p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
@@ -462,10 +488,15 @@ const HistoryTab = ({ user }) => {
             </select>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Pending Items Section */}
-      <div className="space-y-6">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 0.8 }}
+        className="space-y-6"
+      >
         <div className="flex items-center space-x-3 mb-6">
           <div className="p-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-lg">
             <Package className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -491,175 +522,199 @@ const HistoryTab = ({ user }) => {
             </div>
           </div>
         ) : (
-          Object.entries(groupedIncompleteClassifications).map(([groupKey, group]) => (
-            <div key={groupKey} className="relative">
-              {/* Modern Group Card */}
-              <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden backdrop-blur-sm">
-                {/* Group Header */}
-                <button
-                  onClick={() => toggleGroupExpansion(groupKey)}
-                  className="w-full flex items-center justify-between p-6 hover:bg-gradient-to-r hover:from-gray-50/80 hover:to-white/80 dark:hover:from-gray-700/50 dark:hover:to-gray-800/50 transition-all duration-300 group"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className={`p-3 rounded-xl shadow-lg backdrop-blur-sm ${
-                      group.type === 'donate' ? 'bg-gradient-to-br from-red-500/20 to-pink-500/20 border border-red-200/30' :
-                      group.type === 'dropoff' ? 'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-200/30' :
-                      group.type === 'dispose' ? 'bg-gradient-to-br from-gray-500/20 to-slate-500/20 border border-gray-200/30' :
-                      'bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-200/30'
-                    }`}>
-                      {getDisposalTypeIcon(group.type, 28)}
-                    </div>
-                    
-                    <div className="flex flex-col items-start">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
-                        {group.name}
-                      </h3>
-                      <div className="flex items-center space-x-3 mt-1">
-                        <span className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-full text-sm font-semibold border border-blue-200/30">
-                          {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
-                        </span>
-                        <span className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-700 dark:text-green-300 px-3 py-1 rounded-full text-sm font-semibold border border-green-200/30">
-                          {group.items.reduce((sum, item) => sum + item.co2_saved, 0).toFixed(1)}kg CO₂
-                        </span>
-                        {/* Location info */}
-                        {group.items[0]?.location_suggestions?.[0] && (
-                          <span className="bg-gradient-to-r from-gray-500/20 to-slate-500/20 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-sm font-semibold border border-gray-200/30 flex items-center space-x-1">
-                            <MapPin className="h-3 w-3" />
-                            <span>{group.items[0].location_suggestions[0].address || group.items[0].location_suggestions[0].name}</span>
+          <AnimatePresence>
+            {Object.entries(groupedIncompleteClassifications).map(([groupKey, group], index) => (
+              <motion.div 
+                key={groupKey}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="relative"
+              >
+                {/* Modern Group Card */}
+                <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden backdrop-blur-sm">
+                  {/* Group Header */}
+                  <button
+                    onClick={() => toggleGroupExpansion(groupKey)}
+                    className="w-full flex items-center justify-between p-6 hover:bg-gradient-to-r hover:from-gray-50/80 hover:to-white/80 dark:hover:from-gray-700/50 dark:hover:to-gray-800/50 transition-all duration-300 group"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className={`p-3 rounded-xl shadow-lg backdrop-blur-sm ${
+                        group.type === 'donate' ? 'bg-gradient-to-br from-red-500/20 to-pink-500/20 border border-red-200/30' :
+                        group.type === 'dropoff' ? 'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-200/30' :
+                        group.type === 'dispose' ? 'bg-gradient-to-br from-gray-500/20 to-slate-500/20 border border-gray-200/30' :
+                        'bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-200/30'
+                      }`}>
+                        {getDisposalTypeIcon(group.type, 28)}
+                      </div>
+                      
+                      <div className="flex flex-col items-start">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
+                          {group.name}
+                        </h3>
+                        <div className="flex items-center space-x-3 mt-1">
+                          <span className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-full text-sm font-semibold border border-blue-200/30">
+                            {group.items.length} {group.items.length === 1 ? 'item' : 'items'}
                           </span>
-                        )}
+                          <span className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-700 dark:text-green-300 px-3 py-1 rounded-full text-sm font-semibold border border-green-200/30">
+                            {group.items.reduce((sum, item) => sum + item.co2_saved, 0).toFixed(1)}kg CO₂
+                          </span>
+                          {/* Location info */}
+                          {group.items[0]?.location_suggestions?.[0] && (
+                            <span className="bg-gradient-to-r from-gray-500/20 to-slate-500/20 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-sm font-semibold border border-gray-200/30 flex items-center space-x-1">
+                              <MapPin className="h-3 w-3" />
+                              <span>{group.items[0].location_suggestions[0].address || group.items[0].location_suggestions[0].name}</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    {/* Complete All Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleGroupCompletion(group.items);
-                      }}
-                      className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all duration-200 flex items-center space-x-1"
-                      title="Complete all items in this group"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span className="text-sm font-medium">All</span>
-                    </button>
                     
-                    {/* Open in Maps Button */}
-                    {group.items[0]?.location_suggestions?.[0] && (
+                    <div className="flex items-center space-x-2">
+                      {/* Complete All Button */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          openInMaps(group.items[0]);
+                          toggleGroupCompletion(group.items);
                         }}
-                        className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200"
-                        title="Open location in maps"
+                        className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all duration-200 flex items-center space-x-1"
+                        title="Complete all items in this group"
                       >
-                        <ExternalLink className="h-4 w-4" />
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span className="text-sm font-medium">All</span>
                       </button>
-                    )}
-                    
-                    <div className={`p-2 rounded-lg transition-all duration-300 ${
-                      expandedGroups.has(groupKey) ? 'bg-gray-200/50 dark:bg-gray-700/50 rotate-180' : 'bg-gray-100/50 dark:bg-gray-800/50'
-                    }`}>
-                      <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                    </div>
-                  </div>
-                </button>
-
-                {/* Group Items */}
-                {expandedGroups.has(groupKey) && (
-                  <div className="border-t border-gray-200/30 dark:border-gray-700/30 pt-6 px-6 pb-6">
-                    <div className="grid gap-5">
-                      {group.items.map((item) => (
-                        <div 
-                          key={item.id} 
-                          className={`flex items-center space-x-5 p-5 rounded-2xl border-2 transition-all duration-300 relative group shadow-lg backdrop-blur-sm ${
-                            completedItems.has(item.id) 
-                              ? 'bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 border-green-400 dark:border-green-600 shadow-green-300/50 dark:shadow-green-900/30' 
-                              : 'bg-gradient-to-r from-white to-gray-50/50 dark:from-gray-800/50 dark:to-gray-900/50 border-gray-200/50 dark:border-gray-700/50 hover:border-gray-300/70 dark:hover:border-gray-600/70 hover:shadow-xl hover:-translate-y-1'
-                          }`}
-                          onMouseEnter={() => setHoveredItem(item.id)}
-                          onMouseLeave={() => setHoveredItem(null)}
+                      
+                      {/* Open in Maps Button */}
+                      {group.items[0]?.location_suggestions?.[0] && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openInMaps(group.items[0]);
+                          }}
+                          className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200"
+                          title="Open location in maps"
                         >
-                          <div className="flex-shrink-0 relative">
-                            <img
-                              src={
-                                item.image_url ||
-                                (item.waste_image_id
-                                  ? `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${item.waste_image_id}.jpg`
-                                  : undefined)
-                              }
-                              alt={item.display_name}
-                              className="w-16 h-16 object-cover rounded-lg"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                const fallback = e.target.parentNode.querySelector('.fallback-icon');
-                                if (fallback) {
-                                  fallback.style.display = 'flex';
-                                }
-                              }}
-                            />
-                            <div 
-                              className="fallback-icon w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600"
-                              style={{ display: 'none' }}
-                            >
-                              {getCategoryIcon(item.main_category, 24)}
-                            </div>
-                          </div>
-
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                {item.display_name}
-                              </h4>
-                              {item.donation_worthy && (
-                                <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-medium">
-                                  💝 Donate
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {item.weight_kg}kg • {item.co2_saved}kg CO₂ saved
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => toggleItemCompletion(item.id)}
-                            className={`p-3 rounded-lg transition-all duration-200 ${
-                              completedItems.has(item.id)
-                                ? 'bg-green-500 text-white hover:bg-green-600'
-                                : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
-                            }`}
-                            title={completedItems.has(item.id) ? 'Mark as incomplete' : 'Mark as completed'}
-                          >
-                            <Check className="h-5 w-5" />
-                          </button>
-                            
-                          {hoveredItem === item.id && (
-                            <button
-                              onClick={() => deleteItem(item.id)}
-                              className="absolute -top-2 -right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all duration-200 shadow-lg z-10"
-                              title="Delete item"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                          <ExternalLink className="h-4 w-4" />
+                        </button>
+                      )}
+                      
+                      <div className={`p-2 rounded-lg transition-all duration-300 ${
+                        expandedGroups.has(groupKey) ? 'bg-gray-200/50 dark:bg-gray-700/50 rotate-180' : 'bg-gray-100/50 dark:bg-gray-800/50'
+                      }`}>
+                        <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
+                  </button>
+
+                  {/* Group Items */}
+                  <AnimatePresence>
+                    {expandedGroups.has(groupKey) && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="border-t border-gray-200/30 dark:border-gray-700/30 pt-6 px-6 pb-6"
+                      >
+                        <div className="grid gap-5">
+                          {group.items.map((item) => (
+                            <motion.div 
+                              key={item.id}
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className={`flex items-center space-x-5 p-5 rounded-2xl border-2 transition-all duration-300 relative group shadow-lg backdrop-blur-sm ${
+                                completedItems.has(item.id) 
+                                  ? 'bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 border-green-400 dark:border-green-600 shadow-green-300/50 dark:shadow-green-900/30' 
+                                  : 'bg-gradient-to-r from-white to-gray-50/50 dark:from-gray-800/50 dark:to-gray-900/50 border-gray-200/50 dark:border-gray-700/50 hover:border-gray-300/70 dark:hover:border-gray-600/70 hover:shadow-xl hover:-translate-y-1'
+                              }`}
+                              onMouseEnter={() => setHoveredItem(item.id)}
+                              onMouseLeave={() => setHoveredItem(null)}
+                            >
+                              <div className="flex-shrink-0 relative">
+                                <img
+                                  src={
+                                    item.image_url ||
+                                    (item.waste_image_id
+                                      ? `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${item.waste_image_id}.jpg`
+                                      : undefined)
+                                  }
+                                  alt={item.display_name}
+                                  className="w-16 h-16 object-cover rounded-lg"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    const fallback = e.target.parentNode.querySelector('.fallback-icon');
+                                    if (fallback) {
+                                      fallback.style.display = 'flex';
+                                    }
+                                  }}
+                                />
+                                <div 
+                                  className="fallback-icon w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600"
+                                  style={{ display: 'none' }}
+                                >
+                                  {getCategoryIcon(item.main_category, 24)}
+                                </div>
+                              </div>
+
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    {item.display_name}
+                                  </h4>
+                                  {item.donation_worthy && (
+                                    <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-medium">
+                                      💝 Donate
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-sm text-gray-600 dark:text-gray-400">
+                                  {item.weight_kg}kg • {item.co2_saved}kg CO₂ saved
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => toggleItemCompletion(item.id)}
+                                className={`p-3 rounded-lg transition-all duration-200 ${
+                                  completedItems.has(item.id)
+                                    ? 'bg-green-500 text-white hover:bg-green-600'
+                                    : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
+                                }`}
+                                title={completedItems.has(item.id) ? 'Mark as incomplete' : 'Mark as completed'}
+                              >
+                                <Check className="h-5 w-5" />
+                              </button>
+                                
+                              {hoveredItem === item.id && (
+                                <button
+                                  onClick={() => deleteItem(item.id)}
+                                  className="absolute -top-2 -right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all duration-200 shadow-lg z-10"
+                                  title="Delete item"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         )}
-      </div>
+      </motion.div>
 
       {/* Completed Items Section */}
       {completedClassifications.length > 0 && (
-        <div className="space-y-6 mt-12">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 1.0 }}
+          className="space-y-6 mt-12"
+        >
           <div className="flex items-center space-x-3 mb-6">
             <div className="p-2 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-lg">
               <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -672,9 +727,12 @@ const HistoryTab = ({ user }) => {
 
           {/* Simple list of completed items */}
           <div className="grid gap-4">
-            {completedClassifications.map((item) => (
-              <div 
-                key={item.id} 
+            {completedClassifications.map((item, index) => (
+              <motion.div 
+                key={item.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
                 className="flex items-center space-x-4 p-4 rounded-xl border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 transition-all duration-200 relative opacity-80"
                 onMouseEnter={() => setHoveredItem(item.id)}
                 onMouseLeave={() => setHoveredItem(null)}
@@ -742,12 +800,12 @@ const HistoryTab = ({ user }) => {
                 >
                   <RotateCcw className="h-5 w-5" />
                 </button>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
