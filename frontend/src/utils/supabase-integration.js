@@ -168,38 +168,72 @@ export async function getUserClassificationsWithImages(userId, limit = 20) {
     return { data: null, error };
   }
 
-  // Add signed URLs for images (better for private storage)
+  // Add signed URLs for images with better error handling
   const dataWithUrls = await Promise.all(
     data.map(async classification => {
       let image_url = null;
       
-      if (classification.waste_images) {
+      if (classification.waste_images && classification.waste_images.storage_path) {
         try {
           console.log('Processing image for classification:', classification.id, 'Storage path:', classification.waste_images.storage_path);
           
-          // Try to get a signed URL first (works with private storage)
-          const { data: signedUrl, error: signedError } = await supabase.storage
+          // First, check if the file exists
+          const { data: fileExists, error: listError } = await supabase.storage
             .from(BUCKET_NAME)
-            .createSignedUrl(classification.waste_images.storage_path, 3600); // 1 hour expiry
+            .list(classification.waste_images.storage_path.split('/').slice(0, -1).join('/'), {
+              search: classification.waste_images.storage_path.split('/').pop()
+            });
             
-          if (!signedError && signedUrl) {
-            image_url = signedUrl.signedUrl;
-            console.log('Generated signed URL:', image_url);
-          } else {
-            console.log('Signed URL failed, trying public URL. Error:', signedError);
-            // Fallback to public URL
-            const { data: publicUrl } = supabase.storage
+          if (listError) {
+            console.log('Error checking file existence:', listError);
+            return { ...classification, image_url: null };
+          }
+          
+          if (fileExists && fileExists.length > 0) {
+            // Try to get a signed URL first (works with private storage)
+            const { data: signedUrl, error: signedError } = await supabase.storage
               .from(BUCKET_NAME)
-              .getPublicUrl(classification.waste_images.storage_path);
-            image_url = publicUrl.publicUrl;
-            console.log('Generated public URL:', image_url);
+              .createSignedUrl(classification.waste_images.storage_path, 3600); // 1 hour expiry
+              
+            if (!signedError && signedUrl && signedUrl.signedUrl) {
+              // Verify the URL is accessible
+              try {
+                const response = await fetch(signedUrl.signedUrl, { method: 'HEAD' });
+                if (response.ok) {
+                  image_url = signedUrl.signedUrl;
+                  console.log('Generated valid signed URL:', image_url);
+                } else {
+                  console.log('Signed URL not accessible, trying public URL');
+                  const { data: publicUrl } = supabase.storage
+                    .from(BUCKET_NAME)
+                    .getPublicUrl(classification.waste_images.storage_path);
+                  image_url = publicUrl.publicUrl;
+                  console.log('Generated public URL:', image_url);
+                }
+              } catch (fetchError) {
+                console.log('Error verifying signed URL, using public URL:', fetchError.message);
+                const { data: publicUrl } = supabase.storage
+                  .from(BUCKET_NAME)
+                  .getPublicUrl(classification.waste_images.storage_path);
+                image_url = publicUrl.publicUrl;
+              }
+            } else {
+              console.log('Signed URL failed, trying public URL. Error:', signedError);
+              const { data: publicUrl } = supabase.storage
+                .from(BUCKET_NAME)
+                .getPublicUrl(classification.waste_images.storage_path);
+              image_url = publicUrl.publicUrl;
+              console.log('Generated public URL:', image_url);
+            }
+          } else {
+            console.log('File does not exist in storage:', classification.waste_images.storage_path);
           }
         } catch (err) {
           console.warn('Error generating image URL for classification', classification.id, ':', err);
           // Keep image_url as null - will use fallback icon
         }
       } else {
-        console.log('No waste_images data for classification:', classification.id);
+        console.log('No waste_images data or storage_path for classification:', classification.id);
       }
       
       return {

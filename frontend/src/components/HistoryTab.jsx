@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Trash2, Recycle, AlertCircle, Search, Filter, Check, X, MapPin, 
-  Package, Heart, ChevronDown, ChevronRight, RotateCcw, Trash, CheckCircle2 
+  Package, Heart, ChevronDown, ChevronRight, RotateCcw, Trash, CheckCircle2,
+  Store, Zap, Car, Smartphone, Monitor, Sofa, Shirt, Apple, TreePine, ExternalLink
 } from 'lucide-react';
 import * as MdIcons from 'react-icons/md';
 import { getUserClassificationsWithImages, updateClassificationCompletion } from '../utils/supabase-integration';
@@ -70,6 +71,7 @@ const HistoryTab = ({ user }) => {
   }, [user]);
 
   // Helper functions
+  // eslint-disable-next-line no-unused-vars
   const getIconFromMaterialName = (iconName, size = 24, color = 'currentColor') => {
     if (!iconName || typeof iconName !== 'string') {
       return <MdIcons.MdRecycling size={size} color={color} />;
@@ -85,43 +87,133 @@ const HistoryTab = ({ user }) => {
     return <MdIcons.MdRecycling size={size} color={color} />;
   };
 
+  const getDisposalTypeIcon = (type, size = 24) => {
+    switch (type) {
+      case 'donate':
+        return <Heart className={`h-${size/4} w-${size/4} text-pink-600`} />;
+      case 'dropoff':
+        return <Store className={`h-${size/4} w-${size/4} text-blue-600`} />;
+      case 'dispose':
+        return <Trash2 className={`h-${size/4} w-${size/4} text-gray-600`} />;
+      default:
+        return <Package className={`h-${size/4} w-${size/4} text-gray-600`} />;
+    }
+  };
+
+  const getCategoryIcon = (category, size = 24) => {
+    switch (category?.toLowerCase()) {
+      case 'electronic':
+      case 'electronics':
+        return <Smartphone className={`h-${size/4} w-${size/4} text-blue-600`} />;
+      case 'furniture':
+        return <Sofa className={`h-${size/4} w-${size/4} text-amber-600`} />;
+      case 'textile':
+      case 'clothing':
+        return <Shirt className={`h-${size/4} w-${size/4} text-purple-600`} />;
+      case 'organic':
+        return <Apple className={`h-${size/4} w-${size/4} text-green-600`} />;
+      case 'recyclable':
+        return <Recycle className={`h-${size/4} w-${size/4} text-teal-600`} />;
+      case 'hazardous':
+        return <AlertCircle className={`h-${size/4} w-${size/4} text-red-600`} />;
+      default:
+        return <Package className={`h-${size/4} w-${size/4} text-gray-600`} />;
+    }
+  };
+
+  const openInMaps = (item) => {
+    const primaryLocation = item.location_suggestions?.[0];
+    if (primaryLocation && primaryLocation.lat && primaryLocation.lon) {
+      const url = `https://maps.apple.com/?q=${primaryLocation.lat},${primaryLocation.lon}`;
+      window.open(url, '_blank');
+    } else if (primaryLocation && primaryLocation.name) {
+      const query = encodeURIComponent(primaryLocation.name);
+      const url = `https://maps.apple.com/?q=${query}`;
+      window.open(url, '_blank');
+    }
+  };
+
   const toggleItemCompletion = async (itemId) => {
     if (!user) return;
     
     const isCurrentlyCompleted = completedItems.has(itemId);
     const newCompletionStatus = !isCurrentlyCompleted;
     
+    // Find items with same display name for bulk update
+    const currentItem = classifications.find(item => item.id === itemId);
+    const itemsWithSameName = classifications.filter(item => 
+      item.display_name === currentItem?.display_name && !completedItems.has(item.id)
+    );
+    
     try {
-      // Update backend first
-      const result = await updateClassificationCompletion(itemId, newCompletionStatus, user.id);
+      // Update all items with same name
+      const updatePromises = itemsWithSameName.map(item => 
+        updateClassificationCompletion(item.id, newCompletionStatus, user.id)
+      );
       
-      if (result.success) {
-        // Update local state only if backend update was successful
+      const results = await Promise.all(updatePromises);
+      const successfulUpdates = results.filter(result => result.success);
+      
+      if (successfulUpdates.length > 0) {
+        // Update local state for successful updates
         setCompletedItems(prev => {
           const newCompleted = new Set(prev);
-          if (newCompletionStatus) {
-            newCompleted.add(itemId);
-          } else {
-            newCompleted.delete(itemId);
-          }
+          itemsWithSameName.forEach(item => {
+            if (newCompletionStatus) {
+              newCompleted.add(item.id);
+            } else {
+              newCompleted.delete(item.id);
+            }
+          });
           return newCompleted;
         });
         
-        // Also update the classifications data to keep it in sync
+        // Update classifications data
         setClassifications(prev => 
-          prev.map(item => 
-            item.id === itemId ? { ...item, completed: newCompletionStatus } : item
-          )
+          prev.map(item => {
+            const shouldUpdate = itemsWithSameName.some(sameNameItem => sameNameItem.id === item.id);
+            return shouldUpdate ? { ...item, completed: newCompletionStatus } : item;
+          })
         );
         
-        console.log(`Item ${itemId} marked as ${newCompletionStatus ? 'completed' : 'incomplete'}`);
-      } else {
-        console.error('Failed to update completion status:', result.error);
-        // You could show a user-friendly error message here
+        console.log(`${successfulUpdates.length} items marked as ${newCompletionStatus ? 'completed' : 'incomplete'}`);
       }
     } catch (error) {
       console.error('Error toggling completion status:', error);
-      // You could show a user-friendly error message here
+    }
+  };
+
+  const toggleGroupCompletion = async (groupItems) => {
+    if (!user) return;
+    
+    const incompleteItems = groupItems.filter(item => !completedItems.has(item.id));
+    
+    try {
+      const updatePromises = incompleteItems.map(item => 
+        updateClassificationCompletion(item.id, true, user.id)
+      );
+      
+      const results = await Promise.all(updatePromises);
+      const successfulUpdates = results.filter(result => result.success);
+      
+      if (successfulUpdates.length > 0) {
+        setCompletedItems(prev => {
+          const newCompleted = new Set(prev);
+          incompleteItems.forEach(item => newCompleted.add(item.id));
+          return newCompleted;
+        });
+        
+        setClassifications(prev => 
+          prev.map(item => {
+            const shouldUpdate = incompleteItems.some(incompleteItem => incompleteItem.id === item.id);
+            return shouldUpdate ? { ...item, completed: true } : item;
+          })
+        );
+        
+        console.log(`${successfulUpdates.length} items in group marked as completed`);
+      }
+    } catch (error) {
+      console.error('Error completing group:', error);
     }
   };
 
@@ -199,21 +291,13 @@ const HistoryTab = ({ user }) => {
   };
 
   const groupedIncompleteClassifications = groupClassifications(incompleteClassifications);
-  const groupedCompletedClassifications = groupClassifications(completedClassifications);
+  // Don't group completed items - just use the flat list
 
-  // Auto-expand all groups on initial load
+  // Start groups closed by default
   useEffect(() => {
-    const allGroupKeys = [
-      ...Object.keys(groupedIncompleteClassifications),
-      ...Object.keys(groupedCompletedClassifications)
-    ];
-    if (allGroupKeys.length > 0) {
-      setExpandedGroups(new Set(allGroupKeys));
-    }
-  }, [
-    Object.keys(groupedIncompleteClassifications).join(','),
-    Object.keys(groupedCompletedClassifications).join(',')
-  ]);
+    // Groups start collapsed - user can expand as needed
+    setExpandedGroups(new Set());
+  }, [Object.keys(groupedIncompleteClassifications).join(',')]);
 
   // Debug completion state (remove in production)
   useEffect(() => {
@@ -421,10 +505,7 @@ const HistoryTab = ({ user }) => {
                       group.type === 'dispose' ? 'bg-gradient-to-br from-gray-500/20 to-slate-500/20 border border-gray-200/30' :
                       'bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-200/30'
                     }`}>
-                      {group.type === 'donate' && <Heart className="h-7 w-7 text-red-600 dark:text-red-400" />}
-                      {group.type === 'dropoff' && <Package className="h-7 w-7 text-blue-600 dark:text-blue-400" />}
-                      {group.type === 'dispose' && <Trash2 className="h-7 w-7 text-gray-600 dark:text-gray-400" />}
-                      {group.type === 'category' && <Recycle className="h-7 w-7 text-green-600 dark:text-green-400" />}
+                      {getDisposalTypeIcon(group.type, 28)}
                     </div>
                     
                     <div className="flex flex-col items-start">
@@ -438,11 +519,45 @@ const HistoryTab = ({ user }) => {
                         <span className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-700 dark:text-green-300 px-3 py-1 rounded-full text-sm font-semibold border border-green-200/30">
                           {group.items.reduce((sum, item) => sum + item.co2_saved, 0).toFixed(1)}kg CO₂
                         </span>
+                        {/* Location info */}
+                        {group.items[0]?.location_suggestions?.[0] && (
+                          <span className="bg-gradient-to-r from-gray-500/20 to-slate-500/20 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-sm font-semibold border border-gray-200/30 flex items-center space-x-1">
+                            <MapPin className="h-3 w-3" />
+                            <span>{group.items[0].location_suggestions[0].address || group.items[0].location_suggestions[0].name}</span>
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-2">
+                    {/* Complete All Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleGroupCompletion(group.items);
+                      }}
+                      className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all duration-200 flex items-center space-x-1"
+                      title="Complete all items in this group"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span className="text-sm font-medium">All</span>
+                    </button>
+                    
+                    {/* Open in Maps Button */}
+                    {group.items[0]?.location_suggestions?.[0] && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openInMaps(group.items[0]);
+                        }}
+                        className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200"
+                        title="Open location in maps"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </button>
+                    )}
+                    
                     <div className={`p-2 rounded-lg transition-all duration-300 ${
                       expandedGroups.has(groupKey) ? 'bg-gray-200/50 dark:bg-gray-700/50 rotate-180' : 'bg-gray-100/50 dark:bg-gray-800/50'
                     }`}>
@@ -467,27 +582,37 @@ const HistoryTab = ({ user }) => {
                           onMouseLeave={() => setHoveredItem(null)}
                         >
                                                                            {/* Item Image */}
-                          <div className="flex-shrink-0">
+                          <div className="flex-shrink-0 relative">
                             {item.image_url ? (
-                              <img 
-                                src={item.image_url} 
-                                alt={item.display_name}
-                                className="w-16 h-16 object-cover rounded-lg"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  const fallback = e.target.parentNode.querySelector('.fallback-icon');
-                                  if (fallback) fallback.style.display = 'flex';
-                                }}
-                              />
-                            ) : null}
-                            <div 
-                              className="fallback-icon w-16 h-16 rounded-lg flex items-center justify-center bg-gray-100 dark:bg-gray-700"
-                              style={{ 
-                                display: item.image_url ? 'none' : 'flex'
-                              }}
-                            >
-                              {getIconFromMaterialName(item.icon, 24, '#6B7280')}
-                            </div>
+                              <>
+                                <img 
+                                  src={item.image_url} 
+                                  alt={item.display_name}
+                                  className="w-16 h-16 object-cover rounded-lg"
+                                  onError={(e) => {
+                                    console.log('Image failed to load, using fallback');
+                                    e.target.style.display = 'none';
+                                    const fallback = e.target.parentNode.querySelector('.fallback-icon');
+                                    if (fallback) {
+                                      fallback.style.display = 'flex';
+                                    }
+                                  }}
+                                  onLoad={() => {
+                                    console.log('Image loaded successfully');
+                                  }}
+                                />
+                                <div 
+                                  className="fallback-icon w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600"
+                                  style={{ display: 'none' }}
+                                >
+                                  {getCategoryIcon(item.main_category, 24)}
+                                </div>
+                              </>
+                            ) : (
+                              <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600">
+                                {getCategoryIcon(item.main_category, 24)}
+                              </div>
+                            )}
                           </div>
 
                                                   {/* Item Details */}
@@ -554,128 +679,85 @@ const HistoryTab = ({ user }) => {
             <div className="flex-1 h-px bg-gradient-to-r from-green-200 to-transparent dark:from-green-800"></div>
           </div>
 
-          {Object.entries(groupedCompletedClassifications).map(([groupKey, group]) => (
-            <div key={`completed-${groupKey}`} className="relative">
-              {/* Modern Group Card for Completed */}
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl shadow-lg border border-green-200/50 dark:border-green-700/50 overflow-hidden backdrop-blur-sm opacity-75">
-                {/* Group Header */}
-                <button
-                  onClick={() => toggleGroupExpansion(`completed-${groupKey}`)}
-                  className="w-full flex items-center justify-between p-6 hover:bg-gradient-to-r hover:from-green-50/80 hover:to-emerald-50/80 dark:hover:from-green-700/50 dark:hover:to-emerald-800/50 transition-all duration-300 group"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className={`p-3 rounded-xl shadow-lg backdrop-blur-sm ${
-                      group.type === 'donate' ? 'bg-gradient-to-br from-green-500/30 to-emerald-500/30 border border-green-200/50' :
-                      group.type === 'dropoff' ? 'bg-gradient-to-br from-green-500/30 to-emerald-500/30 border border-green-200/50' :
-                      group.type === 'dispose' ? 'bg-gradient-to-br from-green-500/30 to-emerald-500/30 border border-green-200/50' :
-                      'bg-gradient-to-br from-green-500/30 to-emerald-500/30 border border-green-200/50'
-                    }`}>
-                      <CheckCircle2 className="h-7 w-7 text-green-600 dark:text-green-400" />
-                    </div>
-                    
-                    <div className="flex flex-col items-start">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
-                        ✅ {group.name}
-                      </h3>
-                      <div className="flex items-center space-x-3 mt-1">
-                        <span className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-700 dark:text-green-300 px-3 py-1 rounded-full text-sm font-semibold border border-green-200/30">
-                          {group.items.length} completed
-                        </span>
-                        <span className="bg-gradient-to-r from-teal-500/20 to-green-500/20 text-teal-700 dark:text-teal-300 px-3 py-1 rounded-full text-sm font-semibold border border-teal-200/30">
-                          {group.items.reduce((sum, item) => sum + item.co2_saved, 0).toFixed(1)}kg CO₂ saved
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <div className={`p-2 rounded-lg transition-all duration-300 ${
-                      expandedGroups.has(`completed-${groupKey}`) ? 'bg-green-200/50 dark:bg-green-700/50 rotate-180' : 'bg-green-100/50 dark:bg-green-800/50'
-                    }`}>
-                      <ChevronDown className="h-5 w-5 text-green-600 dark:text-green-400" />
-                    </div>
-                  </div>
-                </button>
-
-                {/* Completed Group Items */}
-                {expandedGroups.has(`completed-${groupKey}`) && (
-                  <div className="border-t border-green-200/30 dark:border-green-700/30 pt-6 px-6 pb-6">
-                    <div className="grid gap-5">
-                      {group.items.map((item) => (
-                        <div 
-                          key={item.id} 
-                          className="flex items-center space-x-4 p-4 rounded-xl border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 transition-all duration-200 relative opacity-80"
-                          onMouseEnter={() => setHoveredItem(item.id)}
-                          onMouseLeave={() => setHoveredItem(null)}
-                        >
-                          {/* Delete Button - Top Right Corner */}
-                          {hoveredItem === item.id && (
-                            <button
-                              onClick={() => deleteItem(item.id)}
-                              className="absolute -top-2 -right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all duration-200 shadow-lg z-10"
-                              title="Delete item"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          )}
-
-                          {/* Item Image */}
-                          <div className="flex-shrink-0">
-                            {item.image_url ? (
-                              <img 
-                                src={item.image_url} 
-                                alt={item.display_name}
-                                className="w-16 h-16 object-cover rounded-lg opacity-80"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  const fallback = e.target.parentNode.querySelector('.fallback-icon');
-                                  if (fallback) fallback.style.display = 'flex';
-                                }}
-                              />
-                            ) : null}
-                            <div 
-                              className="fallback-icon w-16 h-16 rounded-lg flex items-center justify-center bg-gray-100 dark:bg-gray-700 opacity-80"
-                              style={{ 
-                                display: item.image_url ? 'none' : 'flex'
-                              }}
-                            >
-                              {getIconFromMaterialName(item.icon, 24, '#6B7280')}
-                            </div>
-                          </div>
-
-                          {/* Item Details */}
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <h4 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-                                ✅ {item.display_name}
-                              </h4>
-                              {item.donation_worthy && (
-                                <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-medium opacity-80">
-                                  💝 Donated
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {item.weight_kg}kg • {item.co2_saved}kg CO₂ saved
-                            </div>
-                          </div>
-
-                          {/* Undo Button */}
-                          <button
-                            onClick={() => toggleItemCompletion(item.id)}
-                            className="p-3 rounded-lg bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-400 dark:hover:bg-gray-500 transition-all duration-200"
-                            title="Mark as incomplete"
-                          >
-                            <RotateCcw className="h-5 w-5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+          {/* Simple list of completed items */}
+          <div className="grid gap-4">
+            {completedClassifications.map((item) => (
+              <div 
+                key={item.id} 
+                className="flex items-center space-x-4 p-4 rounded-xl border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 transition-all duration-200 relative opacity-80"
+                onMouseEnter={() => setHoveredItem(item.id)}
+                onMouseLeave={() => setHoveredItem(null)}
+              >
+                {/* Delete Button - Top Right Corner */}
+                {hoveredItem === item.id && (
+                  <button
+                    onClick={() => deleteItem(item.id)}
+                    className="absolute -top-2 -right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all duration-200 shadow-lg z-10"
+                    title="Delete item"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 )}
+
+                {/* Item Image */}
+                <div className="flex-shrink-0 relative">
+                  {item.image_url ? (
+                    <>
+                      <img 
+                        src={item.image_url} 
+                        alt={item.display_name}
+                        className="w-16 h-16 object-cover rounded-lg opacity-80"
+                        onError={(e) => {
+                          console.log('Completed item image failed to load');
+                          e.target.style.display = 'none';
+                          const fallback = e.target.parentNode.querySelector('.fallback-icon');
+                          if (fallback) {
+                            fallback.style.display = 'flex';
+                          }
+                        }}
+                      />
+                      <div 
+                        className="fallback-icon w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800 dark:to-green-900 border-2 border-green-200 dark:border-green-600 opacity-80"
+                        style={{ display: 'none' }}
+                      >
+                        {getCategoryIcon(item.main_category, 24)}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800 dark:to-green-900 border-2 border-green-200 dark:border-green-600 opacity-80">
+                      {getCategoryIcon(item.main_category, 24)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Item Details */}
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <h4 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                      ✅ {item.display_name}
+                    </h4>
+                    {item.donation_worthy && (
+                      <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-medium opacity-80">
+                        💝 Donated
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    {item.weight_kg}kg • {item.co2_saved}kg CO₂ saved
+                  </div>
+                </div>
+
+                {/* Undo Button */}
+                <button
+                  onClick={() => toggleItemCompletion(item.id)}
+                  className="p-3 rounded-lg bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-400 dark:hover:bg-gray-500 transition-all duration-200"
+                  title="Mark as incomplete"
+                >
+                  <RotateCcw className="h-5 w-5" />
+                </button>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
