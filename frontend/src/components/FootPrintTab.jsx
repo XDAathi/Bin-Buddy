@@ -42,7 +42,6 @@ const FootPrintTab = ({ user }) => {
   const [aiSummary, setAiSummary] = useState('');
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [previousAchievements, setPreviousAchievements] = useState([]);
-  const [dataReady, setDataReady] = useState(false);
 
   // Derived count of items that are not yet completed (matches History "Pending Disposal")
   const completedItemsCount = allClassifications.filter(item => item.completed).length;
@@ -59,6 +58,11 @@ const FootPrintTab = ({ user }) => {
     { id: 8, title: 'Recycling Champion', description: 'Analyzed 50 items', condition: (stats) => stats.totalItems >= 50, icon: Medal },
     { id: 9, title: 'Planet Protector', description: 'Saved 100kg of CO₂', condition: (stats) => stats.totalCO2Saved >= 100, icon: Globe },
     { id: 10, title: 'Sustainability Star', description: 'Analyzed 200 items', condition: (stats) => stats.totalItems >= 200, icon: Star },
+    { id: 11, title: 'Waste Wizard', description: 'Processed 100kg of waste', condition: (stats) => stats.totalWeight >= 100, icon: Sparkles },
+    { id: 12, title: 'Environmental Hero', description: 'Saved 500kg of CO₂', condition: (stats) => stats.totalCO2Saved >= 500, icon: Trophy },
+    { id: 13, title: 'Master Analyst', description: 'Analyzed 500 items', condition: (stats) => stats.totalItems >= 500, icon: BarChart3 },
+    { id: 14, title: 'Category Connoisseur', description: 'Classified 5 different categories', condition: (stats) => stats.categoryBreakdown.length >= 5, icon: Wind },
+    { id: 15, title: 'Eco Veteran', description: 'Active for 30 days', condition: (stats) => stats.daysSinceFirstItem >= 30, icon: Flame },
   ];
 
   // Restore correct allLocations and mapCenter logic
@@ -193,7 +197,7 @@ const FootPrintTab = ({ user }) => {
       } else {
         throw new Error('Failed to generate summary');
       }
-    } catch (error) {
+    } catch {
       setAiSummary(
         `You have processed ${stats.totalItems} items, saving ${stats.totalCO2Saved}kg of CO₂ across ${stats.totalWeight}kg of waste.\n` +
         (Object.keys(categoryBreakdown).length > 0 ?
@@ -471,9 +475,14 @@ const FootPrintTab = ({ user }) => {
                 <p className="text-gray-600 dark:text-gray-400">Generating personalized insights...</p>
               </div>
             ) : (
-              <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.8 }}
+                className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line text-lg"
+              >
                 {aiSummary}
-              </p>
+              </motion.p>
             )}
           </div>
 
@@ -571,8 +580,8 @@ const FootPrintTab = ({ user }) => {
         </div>
 
         {/* Floating Achievements Sidebar */}
-        <div className="w-80 sticky top-20 h-[calc(100vh-6rem)]">
-          <div className="card bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/10 dark:to-orange-900/10 border-2 border-yellow-200 dark:border-yellow-800">
+        <div className="w-80 sticky top-6 h-[calc(100vh-3rem)]">
+          <div className="card bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/10 dark:to-orange-900/10 border-2 border-yellow-200 dark:border-yellow-800 h-full flex flex-col">
             <div className="flex items-center space-x-3 mb-6">
               <div className="w-10 h-10 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
                 <Award className="h-5 w-5 text-white" />
@@ -580,8 +589,8 @@ const FootPrintTab = ({ user }) => {
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Achievements</h3>
             </div>
             
-            <div className="space-y-3 max-h-[calc(100vh-20rem)] overflow-y-auto">
-              {stats.achievements.map((achievement, index) => (
+            <div className="space-y-3 flex-1 overflow-y-auto">
+              {stats.achievements.map((achievement) => (
                 <div
                   key={achievement.id}
                   className={`p-3 rounded-lg border transition-all hover:scale-105 cursor-pointer ${

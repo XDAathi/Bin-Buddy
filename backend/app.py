@@ -638,114 +638,66 @@ def get_available_icons():
 
 @app.route('/api/generate_summary', methods=['POST'])
 def generate_environmental_summary():
-    """Generate AI-powered environmental impact summary"""
+    """Generates a detailed, personalized environmental impact summary using Gemini."""
     try:
         data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
         
-        # Extract user stats from request
-        total_co2_saved = data.get('total_co2_saved', 0)
+        total_co2 = data.get('total_co2_saved', 0)
         total_items = data.get('total_items', 0)
         total_weight = data.get('total_weight', 0)
-        category_breakdown = data.get('category_breakdown', {})
-        recent_achievements = data.get('recent_achievements', [])
+        categories = data.get('category_breakdown', [])
+        achievements = data.get('recent_achievements', [])
         
-        # Determine strongest categories
-        strongest_categories = []
-        if category_breakdown:
-            sorted_categories = sorted(category_breakdown.items(), key=lambda x: x[1].get('percentage', 0), reverse=True)
-            strongest_categories = [cat[0] for cat in sorted_categories[:2]]
+        # Data validation and enrichment
+        if not categories or not isinstance(categories, list):
+            categories = []
         
-        # Calculate efficiency metrics
-        efficiency = round(total_co2_saved / max(total_weight, 1), 2)
-        trees_equivalent = max(1, round(total_co2_saved / 12))
+        # Sort categories by count to find the top one
+        top_category = sorted(categories, key=lambda x: x.get('count', 0), reverse=True)
+        top_category_name = top_category[0]['name'] if top_category else "N/A"
         
-        # Create personalized prompt
-        prompt = f"""You are an environmental data analyst. Create a professional, data-driven environmental impact summary.
+        # Calculate some extra metrics for the prompt
+        avg_weight_per_item = total_weight / total_items if total_items > 0 else 0
+        co2_per_item = total_co2 / total_items if total_items > 0 else 0
+        items_per_kg = total_items / total_weight if total_weight > 0 else 0
 
-User Statistics:
-- Total CO₂ Saved: {total_co2_saved}kg
-- Items Analyzed: {total_items}
-- Total Weight Processed: {total_weight}kg
-- Top Categories: {', '.join(strongest_categories) if strongest_categories else 'Mixed'}
-- CO₂ Efficiency: {efficiency} kg/kg
-- Tree Equivalent: {trees_equivalent} trees worth of CO₂ absorption
+        # Construct a concise and engaging prompt
+        prompt = f"""
+        Act as a passionate and encouraging Environmental Coach. Your tone should be inspiring and positive.
+        Generate a personalized environmental impact summary for a user of the Bin Buddy app.
+        **The summary must be a single paragraph, consisting of 4-5 sentences.** Do not use markdown or headers.
 
-Create a concise summary (80-100 words) that includes:
-1. Specific quantified environmental impact
-2. Highlight top performing waste categories 
-3. One actionable improvement suggestion
-4. Professional tone, no emojis
-5. Include efficiency metrics where relevant
+        Here is the user's data for context:
+        - Total CO₂ Saved: {total_co2:.2f} kg
+        - Total Items Processed: {total_items}
+        - Top Category by count: {top_category_name}
+        - Category Breakdown: {json.dumps(categories)}
+        - Recent Achievements: {', '.join(achievements) if achievements else 'None yet'}
 
-Focus on factual analysis and meaningful environmental metrics."""
+        Please create a single paragraph of 4-5 sentences that includes the following points:
+        - **Celebrate:** Start with a "Wow!" and state their total CO₂ saved, converting it to a relatable equivalent (like planting trees).
+        - **Praise:** Mention their top category and praise their effort in that area.
+        - **Advise:** Provide ONE specific, actionable tip for what they could focus on next to increase their impact (e.g., tackle e-waste, improve recyclable sorting, or start composting).
+        - **Motivate:** End with a short, powerful sentence to encourage them.
 
-        # Generate summary using Gemini with error handling
-        try:
-            model = genai.GenerativeModel('gemini-2.0-flash')
-            response = model.generate_content(prompt)
-            summary = response.text.strip()
-            
-            # Validate summary length and content
-            if len(summary) < 20:
-                raise Exception("Generated summary too short")
-                
-        except Exception as ai_error:
-            print(f"AI generation failed: {ai_error}")
-            # Fallback to template-based summary
-            summary = generate_fallback_summary(total_co2_saved, total_items, total_weight, strongest_categories, efficiency, trees_equivalent)
+        Example Structure: "Wow, fantastic work! You've saved {total_co2:.2f} kg of CO₂, which is like... You're a star when it comes to recycling {top_category_name}. To boost your impact even more, try focusing on [Actionable Tip]. Keep leading the charge for a healthier planet!"
+
+        Generate the summary now.
+        """
+
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(prompt)
         
-        return jsonify({
-            'summary': summary,
-            'generated_at': datetime.now(timezone.utc).isoformat(),
-            'metrics': {
-                'co2_efficiency': efficiency,
-                'trees_equivalent': trees_equivalent,
-                'top_categories': strongest_categories
-            }
-        })
+        summary_text = response.text.strip()
+
+        return jsonify({"summary": summary_text})
         
     except Exception as e:
         print(f"Error generating summary: {e}")
-        # Ultimate fallback
-        return jsonify({
-            'summary': "Your waste management efforts are making a measurable environmental impact. Continue analyzing items to track your progress and optimize your recycling strategies for maximum CO₂ reduction.",
-            'generated_at': datetime.now(timezone.utc).isoformat(),
-            'metrics': {
-                'co2_efficiency': 1.0,
-                'trees_equivalent': 1,
-                'top_categories': []
-            }
-        })
-
-def generate_fallback_summary(co2_saved, items, weight, categories, efficiency, trees):
-    """Generate a structured fallback summary when AI fails"""
-    
-    # Impact statement
-    impact = f"Your recycling efforts have saved {co2_saved}kg of CO₂ through {items} analyzed items"
-    
-    # Category focus
-    if categories:
-        focus = f"with strong performance in {categories[0]}"
-        if len(categories) > 1:
-            focus += f" and {categories[1]}"
-    else:
-        focus = "across multiple waste categories"
-    
-    # Efficiency note
-    efficiency_note = f"achieving {efficiency}kg CO₂ savings per kg processed"
-    
-    # Tree equivalent
-    tree_note = f"equivalent to {trees} tree{'s' if trees != 1 else ''} of annual CO₂ absorption"
-    
-    # Improvement suggestion
-    if efficiency < 2.0:
-        suggestion = "Focus on higher-impact recyclable materials to improve your CO₂ efficiency ratio."
-    elif not categories or 'organic' not in categories:
-        suggestion = "Consider adding organic waste composting to expand your environmental impact."
-    else:
-        suggestion = "Maintain your current recycling practices and explore electronic waste opportunities."
-    
-    return f"{impact} {focus}, {efficiency_note} - {tree_note}. {suggestion}"
+        # Simple fallback response
+        return jsonify({"summary": "We encountered an issue generating your detailed summary, but your stats are looking great! Keep up the excellent work."}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001) 

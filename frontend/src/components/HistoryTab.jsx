@@ -542,14 +542,16 @@ const HistoryTab = ({ user }) => {
                     className="w-full flex items-center justify-between p-6 hover:bg-gradient-to-r hover:from-gray-50/80 hover:to-white/80 dark:hover:from-gray-700/50 dark:hover:to-gray-800/50 transition-all duration-300 group"
                   >
                     <div className="flex items-center space-x-4">
-                      <div className={`p-3 rounded-xl shadow-lg backdrop-blur-sm ${
-                        group.type === 'donate' ? 'bg-gradient-to-br from-red-500/20 to-pink-500/20 border border-red-200/30' :
-                        group.type === 'dropoff' ? 'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-200/30' :
-                        group.type === 'dispose' ? 'bg-gradient-to-br from-gray-500/20 to-slate-500/20 border border-gray-200/30' :
-                        'bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-200/30'
-                      }`}>
-                        {getDisposalTypeIcon(group.type, 28)}
-                      </div>
+                      {groupBy !== 'category' && (
+                        <div className={`p-3 rounded-xl shadow-lg backdrop-blur-sm ${
+                          group.type === 'donate' ? 'bg-gradient-to-br from-red-500/20 to-pink-500/20 border border-red-200/30' :
+                          group.type === 'dropoff' ? 'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-200/30' :
+                          group.type === 'dispose' ? 'bg-gradient-to-br from-gray-500/20 to-slate-500/20 border border-gray-200/30' :
+                          'bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-200/30'
+                        }`}>
+                          {getDisposalTypeIcon(group.type, 28)}
+                        </div>
+                      )}
                       
                       <div className="flex flex-col items-start">
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
