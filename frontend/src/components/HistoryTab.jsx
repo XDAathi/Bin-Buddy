@@ -5,7 +5,8 @@ import {
   Store, Zap, Car, Smartphone, Monitor, Sofa, Shirt, Apple, TreePine, ExternalLink
 } from 'lucide-react';
 import * as MdIcons from 'react-icons/md';
-import { getUserClassificationsWithImages, updateClassificationCompletion } from '../utils/supabase-integration';
+import { getUserClassificationsWithImages } from '../supabase_integration_with_images';
+import { updateClassificationCompletion } from '../utils/supabase-integration';
 
 const HistoryTab = ({ user }) => {
   const [classifications, setClassifications] = useState([]);
@@ -49,7 +50,8 @@ const HistoryTab = ({ user }) => {
             disposal_methods: item.disposal_methods || [],
             location_suggestions: item.location_suggestions || [],
             location_query: item.location_query || '',
-            completed: item.completed || false // Use database value
+            completed: item.completed || false, // Use database value
+            waste_image_id: item.waste_image_id
           }));
           setClassifications(transformedData);
           
@@ -581,41 +583,32 @@ const HistoryTab = ({ user }) => {
                           onMouseEnter={() => setHoveredItem(item.id)}
                           onMouseLeave={() => setHoveredItem(null)}
                         >
-                                                                           {/* Item Image */}
                           <div className="flex-shrink-0 relative">
-                            {item.image_url ? (
-                              <>
-                                <img 
-                                  src={item.image_url} 
-                                  alt={item.display_name}
-                                  className="w-16 h-16 object-cover rounded-lg"
-                                  onError={(e) => {
-                                    console.log('Image failed to load, using fallback');
-                                    e.target.style.display = 'none';
-                                    const fallback = e.target.parentNode.querySelector('.fallback-icon');
-                                    if (fallback) {
-                                      fallback.style.display = 'flex';
-                                    }
-                                  }}
-                                  onLoad={() => {
-                                    console.log('Image loaded successfully');
-                                  }}
-                                />
-                                <div 
-                                  className="fallback-icon w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600"
-                                  style={{ display: 'none' }}
-                                >
-                                  {getCategoryIcon(item.main_category, 24)}
-                                </div>
-                              </>
-                            ) : (
-                              <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600">
-                                {getCategoryIcon(item.main_category, 24)}
-                              </div>
-                            )}
+                            <img
+                              src={
+                                item.image_url ||
+                                (item.waste_image_id
+                                  ? `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${item.waste_image_id}.jpg`
+                                  : undefined)
+                              }
+                              alt={item.display_name}
+                              className="w-16 h-16 object-cover rounded-lg"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                const fallback = e.target.parentNode.querySelector('.fallback-icon');
+                                if (fallback) {
+                                  fallback.style.display = 'flex';
+                                }
+                              }}
+                            />
+                            <div 
+                              className="fallback-icon w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-600"
+                              style={{ display: 'none' }}
+                            >
+                              {getCategoryIcon(item.main_category, 24)}
+                            </div>
                           </div>
 
-                                                  {/* Item Details */}
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-2">
                               <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -632,7 +625,6 @@ const HistoryTab = ({ user }) => {
                             </div>
                           </div>
 
-                                                  {/* Action Button */}
                           <button
                             onClick={() => toggleItemCompletion(item.id)}
                             className={`p-3 rounded-lg transition-all duration-200 ${
@@ -645,7 +637,6 @@ const HistoryTab = ({ user }) => {
                             <Check className="h-5 w-5" />
                           </button>
                             
-                          {/* Delete Button - Top Right Corner */}
                           {hoveredItem === item.id && (
                             <button
                               onClick={() => deleteItem(item.id)}
@@ -701,33 +692,29 @@ const HistoryTab = ({ user }) => {
 
                 {/* Item Image */}
                 <div className="flex-shrink-0 relative">
-                  {item.image_url ? (
-                    <>
-                      <img 
-                        src={item.image_url} 
-                        alt={item.display_name}
-                        className="w-16 h-16 object-cover rounded-lg opacity-80"
-                        onError={(e) => {
-                          console.log('Completed item image failed to load');
-                          e.target.style.display = 'none';
-                          const fallback = e.target.parentNode.querySelector('.fallback-icon');
-                          if (fallback) {
-                            fallback.style.display = 'flex';
-                          }
-                        }}
-                      />
-                      <div 
-                        className="fallback-icon w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800 dark:to-green-900 border-2 border-green-200 dark:border-green-600 opacity-80"
-                        style={{ display: 'none' }}
-                      >
-                        {getCategoryIcon(item.main_category, 24)}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800 dark:to-green-900 border-2 border-green-200 dark:border-green-600 opacity-80">
-                      {getCategoryIcon(item.main_category, 24)}
-                    </div>
-                  )}
+                  <img
+                    src={
+                      item.image_url ||
+                      (item.waste_image_id
+                        ? `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${item.waste_image_id}.jpg`
+                        : undefined)
+                    }
+                    alt={item.display_name}
+                    className="w-16 h-16 object-cover rounded-lg"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      const fallback = e.target.parentNode.querySelector('.fallback-icon');
+                      if (fallback) {
+                        fallback.style.display = 'flex';
+                      }
+                    }}
+                  />
+                  <div 
+                    className="fallback-icon w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800 dark:to-green-900 border-2 border-green-200 dark:border-green-600 opacity-80"
+                    style={{ display: 'none' }}
+                  >
+                    {getCategoryIcon(item.main_category, 24)}
+                  </div>
                 </div>
 
                 {/* Item Details */}

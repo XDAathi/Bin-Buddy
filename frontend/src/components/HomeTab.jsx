@@ -4,7 +4,8 @@ import * as MdIcons from 'react-icons/md';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import supabase from '../supabase-client';
-import { upsertUser, createClassification } from '../supabase-crud';
+import { upsertUser } from '../supabase-crud';
+import { handleWasteClassificationWithImage } from '../supabase_integration_with_images';
 
 // Import UN SDG Images
 import sdg3 from '../assets/sdg_icons_color_goal_3.svg';
@@ -409,63 +410,22 @@ const HomeTab = ({ onClassificationComplete, user }) => {
       
       setUserLocation(currentLocation);
 
-      // Convert image to base64 for API
-      const imageDataUrl = selectedImage.preview;
+      // Use the new integration function that handles image upload to bucket
+      const result = await handleWasteClassificationWithImage(
+        selectedImage.file, 
+        currentLocation, 
+        user.id
+      );
 
-      // Call Flask API directly
-      const response = await fetch('/api/classify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image: imageDataUrl,
-          lat: currentLocation.lat,
-          lon: currentLocation.lon
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`);
+      if (result) {
+        setResult(result);
+        
+        if (onClassificationComplete) {
+          onClassificationComplete(result);
+        }
+      } else {
+        throw new Error('Classification failed');
       }
-
-      const apiResponse = await response.json();
-      setResult(apiResponse);
-      
-      if (onClassificationComplete) {
-        onClassificationComplete(apiResponse);
-      }
-
-    if (!apiResponse.error && user?.id) {
-      const classification = {
-        image_id: apiResponse.image_id || crypto.randomUUID(),
-        main_category: apiResponse.main_category,
-        specific_category: apiResponse.specific_category,
-        display_name: apiResponse.display_name,
-        confidence: apiResponse.confidence,
-        weight_kg: apiResponse.weight || apiResponse.estimated_weight_kg || 0,
-        co2_saved_kg: apiResponse.co2_saved || 0,
-        co2_rate_per_kg: apiResponse.co2_rate || 0,
-        color: apiResponse.color || '#10B981',
-        icon: apiResponse.icon || 'general/item',
-        disposal_methods: apiResponse.disposal_methods || [],
-        recyclable: apiResponse.recyclable || false,
-        donation_worthy: apiResponse.donation_worthy || false,
-        user_lat: currentLocation?.lat || null,
-        user_lon: currentLocation?.lon || null,
-        location_query: apiResponse.location_query || '',
-        location_suggestions: apiResponse.suggestions || [],
-        user_id: user.id,
-      };
-      try {
-        await createClassification(classification, user.id);
-      } catch (e) {
-        console.error('Failed to save classification to Supabase:', e);
-        console.error('Classification data:', classification);
-        console.error('API Response:', apiResponse);
-      }
-    }
-
 
     } catch (error) {
       console.error('Analysis failed:', error);

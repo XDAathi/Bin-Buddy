@@ -1,47 +1,46 @@
 // Complete Supabase integration with image storage and user isolation
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'your-supabase-url'
-const supabaseKey = 'your-supabase-anon-key'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
+
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-const BUCKET_NAME = 'waste-images'
+const BUCKET_NAME = 'images'
 
 /**
- * Upload image to Supabase Storage with user isolation
- * Images are stored in user-specific folders: {user_id}/{image_id}.{ext}
+ * Upload image to Supabase Storage with waste_image_id as filename
+ * Images are stored as {waste_image_id}.{ext}
  */
-async function uploadImageToStorage(imageFile, userId, imageId) {
+async function uploadImageToStorage(imageFile, wasteImageId) {
   try {
-    // Create user-specific path
-    const fileExtension = imageFile.name.split('.').pop()
-    const fileName = `${imageId}.${fileExtension}`
-    const storagePath = `${userId}/${fileName}`
-    
+    const fileExtension = imageFile.name.split('.').pop();
+    const fileName = `${wasteImageId}.${fileExtension}`;
+
     // Upload to storage bucket
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
-      .upload(storagePath, imageFile, {
+      .upload(fileName, imageFile, {
         cacheControl: '3600',
         upsert: false // Don't overwrite existing files
-      })
+      });
 
     if (error) {
-      console.error('Error uploading image:', error)
-      return null
+      console.error('Error uploading image:', error);
+      return null;
     }
 
     // Return storage metadata
     return {
-      filename: imageFile.name,
-      storage_path: storagePath,
+      filename: fileName,
+      storage_path: fileName,
       file_size_bytes: imageFile.size,
       mime_type: imageFile.type,
-      public_url: `${supabaseUrl}/storage/v1/object/public/${BUCKET_NAME}/${storagePath}`
-    }
+      public_url: `${supabaseUrl}/storage/v1/object/public/${BUCKET_NAME}/${fileName}`
+    };
   } catch (err) {
-    console.error('Unexpected error uploading image:', err)
-    return null
+    console.error('Unexpected error uploading image:', err);
+    return null;
   }
 }
 
@@ -50,10 +49,12 @@ async function uploadImageToStorage(imageFile, userId, imageId) {
  */
 async function saveWasteClassificationWithImage(imageFile, apiResponse, userId, userLocation) {
   try {
-    // 1. Upload image to storage
-    const imageMetadata = await uploadImageToStorage(imageFile, userId, apiResponse.image_id)
+    // Use waste_image_id from API response or generate one
+    const wasteImageId = apiResponse.waste_image_id || apiResponse.image_id || crypto.randomUUID();
+    // 1. Upload image to storage as waste_image_id.jpg
+    const imageMetadata = await uploadImageToStorage(imageFile, wasteImageId);
     if (!imageMetadata) {
-      throw new Error('Failed to upload image to storage')
+      throw new Error('Failed to upload image to storage');
     }
 
     // 2. Save classification and image metadata using custom function
@@ -80,13 +81,13 @@ async function saveWasteClassificationWithImage(imageFile, apiResponse, userId, 
       p_user_lon: userLocation?.lon || null,
       p_location_query: apiResponse.location_query,
       p_location_suggestions: apiResponse.suggestions
-    })
+    });
 
     if (error) {
-      console.error('Error saving classification:', error)
+      console.error('Error saving classification:', error);
       // If database save fails, try to clean up uploaded image
-      await supabase.storage.from(BUCKET_NAME).remove([imageMetadata.storage_path])
-      return null
+      await supabase.storage.from(BUCKET_NAME).remove([imageMetadata.storage_path]);
+      return null;
     }
 
     return {
@@ -94,11 +95,11 @@ async function saveWasteClassificationWithImage(imageFile, apiResponse, userId, 
       waste_image_id: data[0]?.waste_image_id,
       image_url: imageMetadata.public_url,
       ...apiResponse
-    }
+    };
 
   } catch (err) {
-    console.error('Unexpected error saving classification:', err)
-    return null
+    console.error('Unexpected error saving classification:', err);
+    return null;
   }
 }
 
