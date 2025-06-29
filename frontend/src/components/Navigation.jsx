@@ -56,22 +56,6 @@ const Navigation = ({ activeTab, setActiveTab, darkMode, setDarkMode, user, sign
             </button>
             {dropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50">
-                {/* Switch for light/dark mode */}
-                <div className="flex items-center w-full px-4 py-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-200 mr-2">
-                    Light/Dark Mode
-                  </span>
-                  <label className="inline-flex relative items-center cursor-pointer ml-auto">
-                    <input
-                      type="checkbox"
-                      checked={darkMode}
-                      onChange={() => setDarkMode(!darkMode)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-eco dark:bg-gray-700 rounded-full peer peer-checked:bg-green-eco transition-all duration-300"></div>
-                    <div className={`absolute left-0.5 top-0.5 w-5 h-5 bg-white dark:bg-gray-900 rounded-full shadow-md transform transition-transform duration-300 ${darkMode ? 'translate-x-5' : ''}`}></div>
-                  </label>
-                </div>
                 <button
                   onClick={() => {
                     signOut();

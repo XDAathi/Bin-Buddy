@@ -550,17 +550,18 @@ const HomeTab = ({ onClassificationComplete, user }) => {
               >
                 {/* Image Preview */}
                 <div className="flex justify-center">
-                  <div className="relative">
+                  <div className="relative w-80 h-64">
                     <img
                       src={selectedImage.preview}
                       alt="Selected"
-                      className="max-w-full h-64 object-cover rounded-xl shadow-lg"
+                      className="w-full h-full object-cover rounded-xl shadow-lg"
                     />
                     <button
                       onClick={() => setSelectedImage(null)}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition"
+                      className="absolute top-2 right-2 w-9 h-9 flex items-center justify-center bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-400 z-10"
+                      aria-label="Remove image"
                     >
-                      ×
+                      <span className="text-2xl leading-none flex items-center justify-center w-full h-full">×</span>
                     </button>
                   </div>
                 </div>
