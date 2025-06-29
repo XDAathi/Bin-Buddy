@@ -287,4 +287,169 @@ export async function updateClassificationCompletion(classificationId, completed
     console.error('Unexpected error updating completion status:', err);
     return { success: false, error: err };
   }
+}
+
+/**
+ * Get REAL weekly progress data from user's actual classifications
+ */
+export async function getRealWeeklyProgress(userId) {
+  const { data, error } = await supabase
+    .from('waste_classifications')
+    .select('created_at, co2_saved_kg, weight_kg')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
+
+  if (error || !data) {
+    console.error('Error fetching weekly progress:', error);
+    return [];
+  }
+
+  // Group by week
+  const weeklyData = {};
+  data.forEach(item => {
+    const date = new Date(item.created_at);
+    const weekStart = new Date(date.setDate(date.getDate() - date.getDay()));
+    const weekKey = weekStart.toISOString().split('T')[0];
+    
+    if (!weeklyData[weekKey]) {
+      weeklyData[weekKey] = {
+        week: `Week ${Math.ceil((Date.now() - weekStart.getTime()) / (7 * 24 * 60 * 60 * 1000))}`,
+        items: 0,
+        co2: 0,
+        weight: 0
+      };
+    }
+    
+    weeklyData[weekKey].items += 1;
+    weeklyData[weekKey].co2 += item.co2_saved_kg || 0;
+    weeklyData[weekKey].weight += item.weight_kg || 0;
+  });
+
+  return Object.values(weeklyData).slice(-8); // Last 8 weeks
+}
+
+/**
+ * Get REAL category breakdown from user's actual classifications
+ */
+export async function getRealCategoryBreakdown(userId) {
+  const { data, error } = await supabase
+    .from('waste_classifications')
+    .select('main_category')
+    .eq('user_id', userId);
+
+  if (error || !data) {
+    console.error('Error fetching category breakdown:', error);
+    return {};
+  }
+
+  const categoryCount = {};
+  const total = data.length;
+  
+  data.forEach(item => {
+    const category = item.main_category || 'other';
+    categoryCount[category] = (categoryCount[category] || 0) + 1;
+  });
+
+  const categoryBreakdown = {};
+  Object.entries(categoryCount).forEach(([category, count]) => {
+    categoryBreakdown[category] = {
+      count,
+      percentage: Math.round((count / total) * 100)
+    };
+  });
+
+  return categoryBreakdown;
+}
+
+/**
+ * Get REAL daily activity from user's actual classifications
+ */
+export async function getRealDailyActivity(userId) {
+  const { data, error } = await supabase
+    .from('waste_classifications')
+    .select('created_at, co2_saved_kg')
+    .eq('user_id', userId)
+    .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+
+  if (error || !data) {
+    console.error('Error fetching daily activity:', error);
+    return [];
+  }
+
+  const dailyData = {
+    'Mon': { day: 'Mon', items: 0, co2: 0 },
+    'Tue': { day: 'Tue', items: 0, co2: 0 },
+    'Wed': { day: 'Wed', items: 0, co2: 0 },
+    'Thu': { day: 'Thu', items: 0, co2: 0 },
+    'Fri': { day: 'Fri', items: 0, co2: 0 },
+    'Sat': { day: 'Sat', items: 0, co2: 0 },
+    'Sun': { day: 'Sun', items: 0, co2: 0 }
+  };
+
+  data.forEach(item => {
+    const date = new Date(item.created_at);
+    const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+    
+    dailyData[dayName].items += 1;
+    dailyData[dayName].co2 += item.co2_saved_kg || 0;
+  });
+
+  return Object.values(dailyData);
+}
+
+/**
+ * Get REAL monthly trends from user's actual classifications
+ */
+export async function getRealMonthlyTrends(userId) {
+  const { data, error } = await supabase
+    .from('waste_classifications')
+    .select('created_at, co2_saved_kg, weight_kg')
+    .eq('user_id', userId)
+    .gte('created_at', new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000).toISOString())
+    .order('created_at', { ascending: true });
+
+  if (error || !data) {
+    console.error('Error fetching monthly trends:', error);
+    return [];
+  }
+
+  const monthlyData = {};
+  data.forEach(item => {
+    const date = new Date(item.created_at);
+    const monthKey = date.toISOString().slice(0, 7); // YYYY-MM
+    const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+    
+    if (!monthlyData[monthKey]) {
+      monthlyData[monthKey] = {
+        month: monthName,
+        items: 0,
+        co2Saved: 0,
+        weight: 0
+      };
+    }
+    
+    monthlyData[monthKey].items += 1;
+    monthlyData[monthKey].co2Saved += item.co2_saved_kg || 0;
+    monthlyData[monthKey].weight += item.weight_kg || 0;
+  });
+
+  return Object.values(monthlyData).slice(-6); // Last 6 months
+}
+
+/**
+ * Get user's first classification date for calculating days active
+ */
+export async function getUserFirstClassificationDate(userId) {
+  const { data, error } = await supabase
+    .from('waste_classifications')
+    .select('created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+    .limit(1);
+
+  if (error || !data || data.length === 0) {
+    return null;
+  }
+
+  return new Date(data[0].created_at);
 } 
