@@ -30,13 +30,13 @@ const Navigation = ({ activeTab, setActiveTab, darkMode, setDarkMode, user, sign
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`flex items-center justify-center space-x-2 px-4 py-3 rounded-lg text-lg font-semibold transition-colors ${
                     activeTab === tab.id
-                      ? 'bg-green-eco text-white'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-green-eco dark:hover:text-green-eco'
+                      ? 'bg-green-eco text-white shadow-md'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-green-eco dark:hover:text-green-eco hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-6 w-6" />
                   <span className="hidden sm:block">{tab.label}</span>
                 </button>
               );

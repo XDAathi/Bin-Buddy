@@ -1,42 +1,26 @@
--- Fix for daily_analytics RLS policy issue
--- Run this in your Supabase SQL editor to fix the classification saving error
+-- COMPREHENSIVE FIX for RLS Policy Issues
+-- This file fixes the database storage problem where classifications aren't being saved
 
--- Add missing INSERT and UPDATE policies for daily_analytics table
--- The trigger function needs to be able to insert/update analytics data
+-- Option 1: Temporarily disable RLS on daily_analytics (simplest fix)
+ALTER TABLE daily_analytics DISABLE ROW LEVEL SECURITY;
 
--- Allow system/triggers to insert analytics data
-CREATE POLICY "Allow system inserts for analytics" ON daily_analytics
-    FOR INSERT WITH CHECK (true);
+-- Option 2: Create more permissive policies (if you want to keep RLS enabled)
+-- Run these if you prefer to keep RLS enabled instead of disabling it
 
--- Allow system/triggers to update analytics data  
-CREATE POLICY "Allow system updates for analytics" ON daily_analytics
-    FOR UPDATE USING (true);
+-- First, drop existing restrictive policies if they exist
+DROP POLICY IF EXISTS "Anyone can view analytics" ON daily_analytics;
+DROP POLICY IF EXISTS "System can insert analytics" ON daily_analytics;
+DROP POLICY IF EXISTS "System can update analytics" ON daily_analytics;
 
--- Alternatively, if you want to be more restrictive, you can use:
--- CREATE POLICY "Allow authenticated inserts for analytics" ON daily_analytics
---     FOR INSERT WITH CHECK (auth.role() = 'authenticated');
--- 
--- CREATE POLICY "Allow authenticated updates for analytics" ON daily_analytics
---     FOR UPDATE USING (auth.role() = 'authenticated'); 
+-- Create new permissive policies
+CREATE POLICY "Allow all operations on analytics" ON daily_analytics
+    FOR ALL USING (true) WITH CHECK (true);
 
--- Fix for daily_analytics RLS policies
--- The trigger function update_user_and_analytics_stats() needs to be able to INSERT and UPDATE
--- records in daily_analytics table, but the current RLS policies only allow SELECT operations.
-
--- Add INSERT policy for daily_analytics (allow system/trigger functions to insert)
-CREATE POLICY "System can insert analytics" ON daily_analytics
-    FOR INSERT WITH CHECK (true);
-
--- Add UPDATE policy for daily_analytics (allow system/trigger functions to update)
-CREATE POLICY "System can update analytics" ON daily_analytics
-    FOR UPDATE USING (true);
-
--- Alternative: Create the trigger function with SECURITY DEFINER to bypass RLS
--- This recreates the function with elevated privileges
+-- Alternative: Create the function with SECURITY DEFINER and proper permissions
 CREATE OR REPLACE FUNCTION update_user_and_analytics_stats()
 RETURNS TRIGGER
-SECURITY DEFINER  -- This allows the function to bypass RLS policies
-SET search_path = public
+SECURITY DEFINER  -- This makes the function run with elevated privileges
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
@@ -93,8 +77,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Recreate the trigger to ensure it uses the updated function
+-- Recreate the trigger
 DROP TRIGGER IF EXISTS update_stats_trigger ON waste_classifications;
 CREATE TRIGGER update_stats_trigger
     AFTER INSERT ON waste_classifications
-    FOR EACH ROW EXECUTE FUNCTION update_user_and_analytics_stats(); 
+    FOR EACH ROW EXECUTE FUNCTION update_user_and_analytics_stats();
+
+-- Grant necessary permissions to the function owner (postgres/authenticated role)
+GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT INSERT, UPDATE ON daily_analytics TO authenticated;
+GRANT INSERT, UPDATE ON users TO authenticated;
+
+-- Ensure the function can be executed by authenticated users
+GRANT EXECUTE ON FUNCTION update_user_and_analytics_stats() TO authenticated;
+
+-- Verify current RLS status (for debugging)
+SELECT tablename, rowsecurity 
+FROM pg_tables 
+WHERE schemaname = 'public' 
+AND tablename IN ('daily_analytics', 'waste_classifications', 'users');
+
+-- Show current policies (for debugging)
+SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
+FROM pg_policies 
+WHERE schemaname = 'public' 
+AND tablename IN ('daily_analytics', 'waste_classifications', 'users'); 

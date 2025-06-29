@@ -101,8 +101,18 @@ const MapComponent = ({ userLocation, locations }) => {
 
     // Clean up previous map instance
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
+      try {
+        mapInstanceRef.current.remove();
+      } catch (e) {
+        console.warn('Error removing previous map instance:', e);
+      }
       mapInstanceRef.current = null;
+    }
+    
+    // Clear any existing map container data
+    if (mapRef.current) {
+      mapRef.current._leaflet_id = null;
+      mapRef.current.innerHTML = '';
     }
 
     // Wait for DOM to be ready
@@ -433,9 +443,9 @@ const HomeTab = ({ onClassificationComplete, user }) => {
         specific_category: apiResponse.specific_category,
         display_name: apiResponse.display_name,
         confidence: apiResponse.confidence,
-        weight_kg: apiResponse.estimated_weight_kg || apiResponse.weight_kg || 0,
-        co2_saved_kg: apiResponse.co2_saved_kg || apiResponse.co2_saved || 0,
-        co2_rate_per_kg: apiResponse.co2_saved_kg_per_kg || apiResponse.co2_rate_per_kg || 0,
+        weight_kg: apiResponse.weight || apiResponse.estimated_weight_kg || 0,
+        co2_saved_kg: apiResponse.co2_saved || 0,
+        co2_rate_per_kg: apiResponse.co2_rate || 0,
         color: apiResponse.color || '#10B981',
         icon: apiResponse.icon || 'general/item',
         disposal_methods: apiResponse.disposal_methods || [],
@@ -747,11 +757,11 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                           }`}>
                             <div className="grid gap-4">
                               {special.map((method, index) => (
-                                <div key={index} className="flex items-start space-x-4 p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg backdrop-blur-sm">
-                                  <div className="flex-shrink-0 w-10 h-10 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-lg">
+                                <div key={index} className="flex items-center space-x-4 p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg backdrop-blur-sm">
+                                  <div className="flex-shrink-0 w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-xl">
                                     {index + 1}
                                   </div>
-                                  <p className="text-gray-700 dark:text-gray-300 font-medium text-lg">
+                                  <p className="text-gray-700 dark:text-gray-300 font-medium text-xl leading-relaxed">
                                     {method}
                                   </p>
                                 </div>
@@ -777,7 +787,7 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                       <div className="mb-8 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg p-6 border border-white/50 dark:border-gray-700/50">
                         <MapComponent 
                           userLocation={userLocation}
-                          locations={result.suggestions.slice(0, showAllLocations ? 10 : 5)}
+                          locations={result.suggestions}
                         />
                       </div>
                     )}
