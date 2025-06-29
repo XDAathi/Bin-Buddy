@@ -4,7 +4,7 @@ import json
 import base64
 import requests
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import google.generativeai as genai
@@ -164,7 +164,7 @@ def calculate_co2_savings(co2_rate, weight):
     return round(weight * co2_rate, 2)
 
 def find_nearby_locations(lat, lon, location_query):
-    """Find nearby disposal locations using Google Places API"""
+    """Find nearby disposal locations using multiple FREE APIs"""
     
     print(f"🔍 Searching for locations: '{location_query}' at {lat}, {lon}")
     
@@ -180,265 +180,369 @@ def find_nearby_locations(lat, lon, location_query):
             "lon": lon
         }]
     
-    # Get Google Places API key
-    google_api_key = os.getenv('GOOGLE_PLACES_API_KEY')
-    if not google_api_key:
-        print("❌ No Google Places API key found, falling back to basic search")
-        return try_fallback_search(lat, lon, location_query)
-    
+    # Try multiple FREE APIs in order of quality
     all_suggestions = []
     
+    # 1. Try Overpass API (FREE, powerful OpenStreetMap queries)
+    print("🔍 Trying Overpass API (FREE)...")
+    suggestions = try_overpass_api(lat, lon, location_query)
+    if suggestions:
+        all_suggestions.extend(suggestions)
+    
+    # 2. Try HERE API (1000 requests/day FREE)
+    if len(all_suggestions) < 3:
+        print("🔍 Trying HERE API (FREE tier)...")
+        suggestions = try_here_api(lat, lon, location_query)
+        if suggestions:
+            all_suggestions.extend(suggestions)
+    
+    # 3. Try Foursquare API (FREE tier)
+    if len(all_suggestions) < 3:
+        print("🔍 Trying Foursquare API (FREE tier)...")
+        suggestions = try_foursquare_api(lat, lon, location_query)
+        if suggestions:
+            all_suggestions.extend(suggestions)
+    
+    # Remove duplicates and filter by distance
+    unique_suggestions = []
+    seen_places = set()
+    
+    for suggestion in all_suggestions:
+        # Skip if too far (more than 25km)
+        if suggestion['distance_km'] > 25:
+            continue
+        
+        # Skip duplicates (based on name and rough location)
+        place_key = f"{suggestion['name'].lower().replace(' ', '')}_{suggestion['lat']:.2f}_{suggestion['lon']:.2f}"
+        if place_key not in seen_places:
+            seen_places.add(place_key)
+            unique_suggestions.append(suggestion)
+    
+    # Sort by distance and return top 5
+    unique_suggestions.sort(key=lambda x: x['distance_km'])
+    final_suggestions = unique_suggestions[:5]
+    
+    print(f"✅ Returning {len(final_suggestions)} FREE API suggestions (filtered from {len(all_suggestions)} total)")
+    for i, suggestion in enumerate(final_suggestions):
+        rating_text = f" - {suggestion.get('rating', 'N/A')}⭐" if suggestion.get('rating') else ""
+        print(f"   {i+1}. {suggestion['name']} - {suggestion['distance_km']}km{rating_text}")
+    
+    # If we still don't have enough results, add some generic ones
+    if len(final_suggestions) < 2:
+        final_suggestions.extend(get_generic_suggestions(lat, lon, location_query))
+    
+    return final_suggestions[:5]
+
+def try_overpass_api(lat, lon, location_query):
+    """Search using Overpass API - completely FREE and powerful OpenStreetMap queries"""
     try:
-        # Enhanced search terms with better specificity for Google Places
-        search_terms = []
-        place_types = []
+        # Create search radius (in meters)
+        radius = 15000  # 15km
         
-        # Add category-specific search terms and place types
+        # Build category-specific Overpass queries
+        queries = []
+        
         if 'electronic' in location_query.lower() or 'e-waste' in location_query.lower():
-            search_terms = [
-                'electronics recycling center',
-                'computer recycling', 
-                'e-waste disposal',
-                'Best Buy recycling'
+            queries = [
+                f'[out:json][timeout:10];(node["shop"="electronics"](around:{radius},{lat},{lon});node["name"~"Best Buy|Staples|Future Shop"](around:{radius},{lat},{lon}););out;',
+                f'[out:json][timeout:10];(node["recycling:small_appliances"="yes"](around:{radius},{lat},{lon});node["amenity"="recycling"]["recycling_type"="centre"](around:{radius},{lat},{lon}););out;'
             ]
-            place_types = ['electronics_store', 'store']
         elif 'furniture' in location_query.lower():
-            search_terms = [
-                'Goodwill',
-                'Salvation Army',
-                'thrift store',
-                'furniture donation center'
+            queries = [
+                f'[out:json][timeout:10];(node["shop"="charity"](around:{radius},{lat},{lon});node["name"~"Goodwill|Salvation Army|Value Village"](around:{radius},{lat},{lon}););out;',
+                f'[out:json][timeout:10];(node["shop"="second_hand"](around:{radius},{lat},{lon});node["shop"="thrift"](around:{radius},{lat},{lon}););out;'
             ]
-            place_types = ['clothing_store', 'store']
         elif 'clothing' in location_query.lower():
-            search_terms = [
-                'Goodwill',
-                'Salvation Army', 
-                'clothing donation',
-                'textile recycling'
+            queries = [
+                f'[out:json][timeout:10];(node["shop"="charity"](around:{radius},{lat},{lon});node["shop"="second_hand"](around:{radius},{lat},{lon}););out;',
+                f'[out:json][timeout:10];(node["name"~"Goodwill|Salvation Army|Value Village"](around:{radius},{lat},{lon}););out;'
             ]
-            place_types = ['clothing_store', 'store']
         elif 'battery' in location_query.lower():
-            search_terms = [
-                'battery recycling',
-                'hazardous waste facility',
-                'automotive store battery'
+            queries = [
+                f'[out:json][timeout:10];(node["amenity"="recycling"]["recycling:batteries"="yes"](around:{radius},{lat},{lon});node["shop"="car_repair"](around:{radius},{lat},{lon}););out;'
             ]
-            place_types = ['car_repair', 'store']
-        elif 'plastic' in location_query.lower() or 'recycling' in location_query.lower():
-            search_terms = [
-                'recycling center',
-                'waste management',
-                'municipal recycling'
+        elif 'recycling' in location_query.lower():
+            queries = [
+                f'[out:json][timeout:10];(node["amenity"="recycling"](around:{radius},{lat},{lon});node["amenity"="waste_disposal"](around:{radius},{lat},{lon}););out;'
             ]
-            place_types = ['local_government_office']
-        elif 'donation' in location_query.lower() or 'charity' in location_query.lower():
-            search_terms = [
-                'Goodwill',
-                'Salvation Army',
-                'charity donation center',
-                'thrift store'
+        elif 'donation' in location_query.lower():
+            queries = [
+                f'[out:json][timeout:10];(node["shop"="charity"](around:{radius},{lat},{lon});node["amenity"="social_facility"](around:{radius},{lat},{lon}););out;'
             ]
-            place_types = ['clothing_store', 'store']
         else:
-            search_terms = [
-                'waste management',
-                'recycling center',
-                'dump'
+            queries = [
+                f'[out:json][timeout:10];(node["amenity"="recycling"](around:{radius},{lat},{lon});node["amenity"="waste_disposal"](around:{radius},{lat},{lon}););out;'
             ]
-            place_types = ['local_government_office']
         
-        # Try each search approach
-        for search_term in search_terms[:4]:  # Limit API calls
-            print(f"🔍 Trying Google Places search: '{search_term}'")
+        suggestions = []
+        
+        for query in queries[:2]:  # Limit to 2 queries per search
+            print(f"🔍 Running Overpass query...")
             
-            # Strategy 1: Text search for specific businesses
-            suggestions = try_google_places_text_search(lat, lon, search_term, google_api_key, radius=20000)
-            if suggestions:
-                all_suggestions.extend(suggestions)
-                continue
+            response = requests.post(
+                'https://overpass-api.de/api/interpreter',
+                data=query,
+                timeout=15,
+                headers={'User-Agent': 'BinBuddy/1.0'}
+            )
             
-            # Strategy 2: Nearby search with place types
-            for place_type in place_types[:2]:  # Try up to 2 place types
-                suggestions = try_google_places_nearby_search(lat, lon, search_term, place_type, google_api_key, radius=15000)
+            if response.status_code == 200:
+                data = response.json()
+                elements = data.get('elements', [])
+                print(f"📊 Overpass API found {len(elements)} elements")
+                
+                for element in elements:
+                    if 'lat' not in element or 'lon' not in element:
+                        continue
+                    
+                    tags = element.get('tags', {})
+                    name = tags.get('name', tags.get('operator', 'Unknown Location'))
+                    
+                    if not name or name == 'Unknown Location':
+                        continue
+                    
+                    result_lat = element['lat']
+                    result_lon = element['lon']
+                    distance = calculate_distance(lat, lon, result_lat, result_lon)
+                    
+                    # Determine type based on tags
+                    suggestion_type = determine_overpass_type(tags, location_query)
+                    
+                    # Build address from tags
+                    address_parts = []
+                    for addr_key in ['addr:housenumber', 'addr:street', 'addr:city']:
+                        if addr_key in tags:
+                            address_parts.append(tags[addr_key])
+                    address = ', '.join(address_parts) if address_parts else 'Address not available'
+                    
+                    suggestions.append({
+                        "type": suggestion_type,
+                        "name": name,
+                        "address": address,
+                        "distance_km": round(distance, 1),
+                        "lat": result_lat,
+                        "lon": result_lon,
+                        "source": "overpass"
+                    })
+                
                 if suggestions:
-                    all_suggestions.extend(suggestions)
+                    break  # Found results, no need to try more queries
+        
+        return suggestions[:5]  # Return top 5
+        
+    except Exception as e:
+        print(f"💥 Error with Overpass API: {e}")
+        return []
+
+def try_here_api(lat, lon, location_query):
+    """Search using HERE API - 1000 requests/day FREE"""
+    try:
+        here_api_key = os.getenv('HERE_API_KEY')
+        if not here_api_key:
+            print("⚠️ No HERE API key found, skipping...")
+            return []
+        
+        # Build search terms
+        search_terms = get_search_terms_for_category(location_query)
+        
+        suggestions = []
+        for search_term in search_terms[:2]:  # Limit API calls
+            url = "https://discover.search.hereapi.com/v1/discover"
+            params = {
+                'at': f"{lat},{lon}",
+                'q': search_term,
+                'limit': 10,
+                'apikey': here_api_key
+            }
+            
+            response = requests.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                items = data.get('items', [])
+                print(f"📊 HERE API found {len(items)} results for '{search_term}'")
+                
+                for item in items:
+                    position = item.get('position', {})
+                    if 'lat' not in position or 'lng' not in position:
+                        continue
+                    
+                    result_lat = position['lat']
+                    result_lon = position['lng']
+                    distance = calculate_distance(lat, lon, result_lat, result_lon)
+                    
+                    suggestions.append({
+                        "type": determine_suggestion_type_from_categories(item.get('categories', []), location_query),
+                        "name": item.get('title', 'Unknown Location'),
+                        "address": item.get('address', {}).get('label', 'Address not available'),
+                        "distance_km": round(distance, 1),
+                        "lat": result_lat,
+                        "lon": result_lon,
+                        "source": "here"
+                    })
+                
+                if suggestions:
+                    break  # Found results
+        
+        return suggestions[:5]
+        
+    except Exception as e:
+        print(f"💥 Error with HERE API: {e}")
+        return []
+
+def try_foursquare_api(lat, lon, location_query):
+    """Search using Foursquare API - FREE tier available"""
+    try:
+        fsq_api_key = os.getenv('FOURSQUARE_API_KEY')
+        if not fsq_api_key:
+            print("⚠️ No Foursquare API key found, skipping...")
+            return []
+        
+        # Build search terms and categories
+        search_terms = get_search_terms_for_category(location_query)
+        
+        suggestions = []
+        for search_term in search_terms[:2]:
+            url = "https://api.foursquare.com/v3/places/search"
+            params = {
+                'll': f"{lat},{lon}",
+                'query': search_term,
+                'radius': 20000,  # 20km
+                'limit': 10
+            }
+            
+            headers = {
+                'Authorization': fsq_api_key,
+                'Accept': 'application/json'
+            }
+            
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get('results', [])
+                print(f"📊 Foursquare API found {len(results)} results for '{search_term}'")
+                
+                for result in results:
+                    geocodes = result.get('geocodes', {}).get('main', {})
+                    if 'latitude' not in geocodes or 'longitude' not in geocodes:
+                        continue
+                    
+                    result_lat = geocodes['latitude']
+                    result_lon = geocodes['longitude']
+                    distance = calculate_distance(lat, lon, result_lat, result_lon)
+                    
+                    location_info = result.get('location', {})
+                    address = location_info.get('formatted_address', 'Address not available')
+                    
+                    suggestions.append({
+                        "type": determine_suggestion_type_from_categories(result.get('categories', []), location_query),
+                        "name": result.get('name', 'Unknown Location'),
+                        "address": address,
+                        "distance_km": round(distance, 1),
+                        "lat": result_lat,
+                        "lon": result_lon,
+                        "rating": result.get('rating'),
+                        "source": "foursquare"
+                    })
+                
+                if suggestions:
                     break
         
-        # Remove duplicates and filter by distance
-        unique_suggestions = []
-        seen_places = set()
-        
-        for suggestion in all_suggestions:
-            # Skip if too far (more than 30km)
-            if suggestion['distance_km'] > 30:
-                continue
-            
-            # Skip duplicates (based on place_id or name+location)
-            place_key = suggestion.get('place_id', f"{suggestion['name']}_{suggestion['lat']:.3f}_{suggestion['lon']:.3f}")
-            if place_key not in seen_places:
-                seen_places.add(place_key)
-                unique_suggestions.append(suggestion)
-        
-        # Sort by distance and return top 5
-        unique_suggestions.sort(key=lambda x: x['distance_km'])
-        final_suggestions = unique_suggestions[:5]
-        
-        print(f"✅ Returning {len(final_suggestions)} Google Places suggestions (filtered from {len(all_suggestions)} total)")
-        for i, suggestion in enumerate(final_suggestions):
-            print(f"   {i+1}. {suggestion['name']} - {suggestion['distance_km']}km - {suggestion.get('rating', 'N/A')}⭐")
-        
-        return final_suggestions
+        return suggestions[:5]
         
     except Exception as e:
-        print(f"💥 Error finding locations with Google Places: {e}")
-        return try_fallback_search(lat, lon, location_query)
+        print(f"💥 Error with Foursquare API: {e}")
+        return []
 
-def try_google_places_text_search(lat, lon, search_term, api_key, radius=20000):
-    """Search for places using Google Places Text Search API"""
-    try:
-        url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
-        params = {
-            'query': f"{search_term} near {lat},{lon}",
-            'location': f"{lat},{lon}",
-            'radius': radius,
-            'key': api_key
-        }
-        
-        response = requests.get(url, params=params, timeout=15)
-        
-        if response.status_code == 200:
-            data = response.json()
-            results = data.get('results', [])
-            print(f"📊 Google Places Text Search found {len(results)} results for '{search_term}'")
-            
-            suggestions = []
-            for result in results:
-                if 'geometry' not in result:
-                    continue
-                    
-                result_lat = result['geometry']['location']['lat']
-                result_lon = result['geometry']['location']['lng']
-                distance = calculate_distance(lat, lon, result_lat, result_lon)
-                
-                # Determine type based on place types and search term
-                suggestion_type = determine_suggestion_type(result, search_term)
-                
-                suggestions.append({
-                    "type": suggestion_type,
-                    "name": result['name'],
-                    "address": result.get('formatted_address', 'Address unavailable'),
-                    "distance_km": round(distance, 1),
-                    "lat": result_lat,
-                    "lon": result_lon,
-                    "rating": result.get('rating'),
-                    "place_id": result.get('place_id'),
-                    "types": result.get('types', [])
-                })
-            
-            return suggestions
-        else:
-            print(f"❌ Google Places Text Search API returned status code: {response.status_code}")
-            
-    except Exception as e:
-        print(f"💥 Error in Google Places Text Search: {e}")
-    
-    return []
+def get_search_terms_for_category(location_query):
+    """Get search terms based on the location query category"""
+    if 'electronic' in location_query.lower() or 'e-waste' in location_query.lower():
+        return ['electronics recycling', 'Best Buy', 'computer repair', 'e-waste']
+    elif 'furniture' in location_query.lower():
+        return ['Goodwill', 'Salvation Army', 'thrift store', 'furniture donation']
+    elif 'clothing' in location_query.lower():
+        return ['clothing donation', 'Goodwill', 'thrift store', 'charity shop']
+    elif 'battery' in location_query.lower():
+        return ['battery recycling', 'auto parts store', 'car repair']
+    elif 'recycling' in location_query.lower():
+        return ['recycling center', 'waste management', 'municipal recycling']
+    elif 'donation' in location_query.lower():
+        return ['donation center', 'charity', 'Goodwill', 'Salvation Army']
+    else:
+        return ['recycling center', 'waste management']
 
-def try_google_places_nearby_search(lat, lon, keyword, place_type, api_key, radius=15000):
-    """Search for nearby places using Google Places Nearby Search API"""
-    try:
-        url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
-        params = {
-            'location': f"{lat},{lon}",
-            'radius': radius,
-            'type': place_type,
-            'keyword': keyword,
-            'key': api_key
-        }
-        
-        response = requests.get(url, params=params, timeout=15)
-        
-        if response.status_code == 200:
-            data = response.json()
-            results = data.get('results', [])
-            print(f"📊 Google Places Nearby Search found {len(results)} results for '{keyword}' + '{place_type}'")
-            
-            suggestions = []
-            for result in results:
-                if 'geometry' not in result:
-                    continue
-                    
-                result_lat = result['geometry']['location']['lat']
-                result_lon = result['geometry']['location']['lng']
-                distance = calculate_distance(lat, lon, result_lat, result_lon)
-                
-                # Determine type based on place types and keyword
-                suggestion_type = determine_suggestion_type(result, keyword)
-                
-                suggestions.append({
-                    "type": suggestion_type,
-                    "name": result['name'],
-                    "address": result.get('vicinity', 'Address unavailable'),
-                    "distance_km": round(distance, 1),
-                    "lat": result_lat,
-                    "lon": result_lon,
-                    "rating": result.get('rating'),
-                    "place_id": result.get('place_id'),
-                    "types": result.get('types', [])
-                })
-            
-            return suggestions
-        else:
-            print(f"❌ Google Places Nearby Search API returned status code: {response.status_code}")
-            
-    except Exception as e:
-        print(f"💥 Error in Google Places Nearby Search: {e}")
+def determine_overpass_type(tags, location_query):
+    """Determine suggestion type from OpenStreetMap tags"""
+    shop = tags.get('shop', '').lower()
+    amenity = tags.get('amenity', '').lower()
+    name = tags.get('name', '').lower()
     
-    return []
-
-def determine_suggestion_type(place_result, search_term):
-    """Determine the suggestion type based on place data and search term"""
-    place_types = place_result.get('types', [])
-    name = place_result.get('name', '').lower()
-    search_lower = search_term.lower()
-    
-    # Check for donation/charity places
-    if any(keyword in name for keyword in ['goodwill', 'salvation army', 'charity', 'thrift']):
+    if shop in ['charity', 'second_hand', 'thrift'] or 'goodwill' in name or 'salvation army' in name:
         return "donate"
-    if any(keyword in search_lower for keyword in ['donation', 'charity', 'thrift', 'goodwill', 'salvation']):
-        return "donate"
-    
-    # Check for disposal/waste places
-    if any(keyword in name for keyword in ['dump', 'landfill', 'waste', 'transfer station']):
+    elif amenity in ['waste_disposal', 'waste_transfer_station'] or 'dump' in name:
         return "dispose"
-    if any(keyword in search_lower for keyword in ['dump', 'landfill', 'disposal', 'waste management']):
-        return "dispose"
+    else:
+        return "dropoff"
+
+def determine_suggestion_type_from_categories(categories, location_query):
+    """Determine suggestion type from API categories"""
+    # This is a simplified version - you can expand based on actual category data
+    for category in categories:
+        cat_name = category.get('name', '').lower() if isinstance(category, dict) else str(category).lower()
+        if any(keyword in cat_name for keyword in ['charity', 'thrift', 'donation']):
+            return "donate"
+        elif any(keyword in cat_name for keyword in ['waste', 'dump', 'disposal']):
+            return "dispose"
     
-    # Default to dropoff for recycling centers and others
     return "dropoff"
 
-def try_fallback_search(lat, lon, location_query):
-    """Fallback search when Google Places API is not available"""
-    print("🔄 Using fallback search method")
+def get_generic_suggestions(lat, lon, location_query):
+    """Generate generic suggestions as fallback"""
+    generic_suggestions = []
     
-    # Return some generic suggestions based on location
-    return [
-        {
-            "type": "dropoff",
-            "name": "Municipal Recycling Center",
-            "distance_km": 2.5,
-            "lat": lat + 0.01,
-            "lon": lon + 0.01
-        },
-        {
-            "type": "donate",
-            "name": "Local Donation Center",
-            "distance_km": 1.8,
-            "lat": lat - 0.008,
-            "lon": lon + 0.012
-        }
-    ]
+    if 'donation' in location_query.lower() or 'furniture' in location_query.lower() or 'clothing' in location_query.lower():
+        generic_suggestions.extend([
+            {
+                "type": "donate",
+                "name": "Local Goodwill Store",
+                "address": "Check maps for nearest location",
+                "distance_km": 3.2,
+                "lat": lat + 0.02,
+                "lon": lon + 0.015
+            },
+            {
+                "type": "donate",
+                "name": "Salvation Army Donation Center",
+                "address": "Check maps for nearest location", 
+                "distance_km": 4.1,
+                "lat": lat - 0.025,
+                "lon": lon + 0.02
+            }
+        ])
+    else:
+        generic_suggestions.extend([
+            {
+                "type": "dropoff",
+                "name": "Municipal Recycling Center",
+                "address": "Contact city for location",
+                "distance_km": 2.8,
+                "lat": lat + 0.015,
+                "lon": lon - 0.01
+            },
+            {
+                "type": "dropoff",
+                "name": "Local Waste Management Facility",
+                "address": "Check city website",
+                "distance_km": 5.3,
+                "lat": lat - 0.03,
+                "lon": lon + 0.025
+            }
+        ])
+    
+    return generic_suggestions
+
+
 
 
 
@@ -485,7 +589,7 @@ def classify_waste():
         # Create response with all dynamic data
         response = {
             "image_id": str(uuid.uuid4()),
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
             
             # Core classification
             "main_category": classification['main_category'],
@@ -521,7 +625,7 @@ def classify_waste():
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()})
+    return jsonify({'status': 'healthy', 'timestamp': datetime.now(timezone.utc).isoformat()})
 
 @app.route('/api/icons', methods=['GET'])
 def get_available_icons():

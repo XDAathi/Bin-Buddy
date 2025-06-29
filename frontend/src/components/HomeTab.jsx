@@ -46,54 +46,88 @@ const MapComponent = ({ userLocation, locations }) => {
   const mapInstanceRef = useRef(null);
 
   useEffect(() => {
-    if (!mapRef.current || !userLocation) return;
+    if (!mapRef.current || !userLocation || !locations) return;
 
-    // Initialize map
-    mapInstanceRef.current = L.map(mapRef.current, {
-      attributionControl: false
-    }).setView([userLocation.lat, userLocation.lon], 13);
-
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(mapInstanceRef.current);
-
-    // Add user marker
-    L.marker([userLocation.lat, userLocation.lon], { icon: userIcon })
-      .addTo(mapInstanceRef.current)
-      .bindPopup('You are here')
-      .openPopup();
-
-    // Add location markers
-    locations.forEach((location) => {
-      const color = location.type === 'donate' ? '#10B981' : 
-                   location.type === 'dropoff' ? '#F59E0B' : '#EF4444';
-      
-      L.marker([location.lat, location.lon], { icon: createCustomIcon(color) })
-        .addTo(mapInstanceRef.current)
-        .bindPopup(`
-          <div style="text-align: center; padding: 4px;">
-            <strong>${location.name}</strong><br>
-            <small>${location.distance_km}km away</small><br>
-            <small style="color: ${color};">${location.type}</small>
-          </div>
-        `);
-    });
-
-    // Fit map to show all markers
-    if (locations.length > 0) {
-      const group = new L.featureGroup([
-        L.marker([userLocation.lat, userLocation.lon]),
-        ...locations.map(loc => L.marker([loc.lat, loc.lon]))
-      ]);
-      mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1));
+    // Clean up previous map instance
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
     }
+
+    // Wait for DOM to be ready
+    setTimeout(() => {
+      try {
+        // Initialize map
+        mapInstanceRef.current = L.map(mapRef.current, {
+          attributionControl: false
+        }).setView([userLocation.lat, userLocation.lon], 13);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(mapInstanceRef.current);
+
+        // Add user marker
+        L.marker([userLocation.lat, userLocation.lon], { icon: userIcon })
+          .addTo(mapInstanceRef.current)
+          .bindPopup('You are here')
+          .openPopup();
+
+        // Add location markers (with safety checks)
+        const validLocations = locations.filter(location => 
+          location && 
+          typeof location.lat === 'number' && 
+          typeof location.lon === 'number' &&
+          !isNaN(location.lat) && 
+          !isNaN(location.lon)
+        );
+
+        validLocations.forEach((location) => {
+          const color = location.type === 'donate' ? '#10B981' : 
+                       location.type === 'dropoff' ? '#F59E0B' : '#EF4444';
+          
+          L.marker([location.lat, location.lon], { icon: createCustomIcon(color) })
+            .addTo(mapInstanceRef.current)
+            .bindPopup(`
+              <div style="text-align: center; padding: 4px;">
+                <strong>${location.name || 'Unknown Location'}</strong><br>
+                <small>${location.distance_km || 'N/A'}km away</small><br>
+                <small style="color: ${color};">${location.type || 'dropoff'}</small>
+              </div>
+            `);
+        });
+
+        // Fit map to show all markers
+        if (validLocations.length > 0) {
+          try {
+            const markers = [
+              L.marker([userLocation.lat, userLocation.lon]),
+              ...validLocations.map(loc => L.marker([loc.lat, loc.lon]))
+            ];
+            const group = new L.featureGroup(markers);
+            mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1));
+          } catch (fitError) {
+            console.warn('Error fitting map bounds:', fitError);
+            // Fallback to default zoom
+            mapInstanceRef.current.setView([userLocation.lat, userLocation.lon], 13);
+          }
+        }
+
+      } catch (mapError) {
+        console.error('Error initializing map:', mapError);
+      }
+    }, 100); // Small delay to ensure DOM is ready
 
     // Cleanup function
     return () => {
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+        try {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        } catch (cleanupError) {
+          console.warn('Error during map cleanup:', cleanupError);
+          mapInstanceRef.current = null;
+        }
       }
     };
   }, [userLocation, locations]);
@@ -133,6 +167,37 @@ const MapComponent = ({ userLocation, locations }) => {
 };
 
 const HomeTab = ({ onClassificationComplete, user }) => {
+  // Helper function to determine if a color is light or dark
+  const isLightColor = (color) => {
+    if (!color) return false; // Default green is dark
+    
+    try {
+      // Handle different color formats
+      let hex = color;
+      if (color.startsWith('#')) {
+        hex = color.substring(1);
+      }
+      
+      // Ensure we have a valid 6-character hex
+      if (hex.length === 3) {
+        hex = hex.split('').map(char => char + char).join('');
+      }
+      
+      if (hex.length !== 6) return false;
+      
+      // Convert hex to RGB
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      
+      // Calculate luminance using standard formula
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      return luminance > 0.6; // Light if luminance > 0.6 (adjusted threshold)
+    } catch (error) {
+      console.warn('Error parsing color:', color, error);
+      return false; // Default to dark text on unknown colors
+    }
+  };
   const [selectedImage, setSelectedImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
@@ -258,48 +323,54 @@ const HomeTab = ({ onClassificationComplete, user }) => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
-      {/* How to Use Section */}
-      <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          How to Use?
-        </h1>
-        <div className="w-24 h-1 bg-green-eco mx-auto rounded-full"></div>
-      </div>
-
       {/* Upload Section */}
       <div className="card max-w-2xl mx-auto">
         <div className="text-center space-y-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Upload or Capture items
-          </h2>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Start Your Analysis
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              Take a photo or upload an image to identify and get disposal guidance
+            </p>
+          </div>
           
           {!selectedImage ? (
-            <div className="space-y-4">
-              {/* Camera Icon */}
+            <div className="space-y-6">
+              {/* Enhanced Camera Icon */}
               <div className="flex justify-center">
-                <div className="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                  <Camera className="h-12 w-12 text-gray-400" />
+                <div className="w-32 h-32 bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/30 dark:to-blue-900/30 rounded-2xl flex items-center justify-center border-2 border-dashed border-green-300 dark:border-green-600">
+                  <Camera className="h-16 w-16 text-green-600 dark:text-green-400" />
                 </div>
               </div>
 
-              {/* Upload buttons */}
+              {/* Enhanced Upload buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="btn-primary flex items-center justify-center space-x-2"
-                >
-                  <Camera className="h-5 w-5" />
-                  <span>Take Photo</span>
-                </button>
-                
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="btn-secondary flex items-center justify-center space-x-2"
-                >
-                  <Upload className="h-5 w-5" />
-                  <span>Upload Image</span>
-                </button>
+                                  <button
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="btn-primary flex items-center justify-center space-x-3 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                  >
+                    <Camera className="h-6 w-6" />
+                    <span>Take Photo</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="btn-secondary flex items-center justify-center space-x-3 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                  >
+                    <Upload className="h-6 w-6" />
+                    <span>Upload Image</span>
+                  </button>
               </div>
+              
+              {/* Helpful tip */}
+                              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 text-blue-700 dark:text-blue-300">
+                    <p className="text-sm font-medium">
+                      <strong>Tip:</strong> For best results, take clear photos with good lighting and focus on a single item
+                    </p>
+                  </div>
+                </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -315,27 +386,31 @@ const HomeTab = ({ onClassificationComplete, user }) => {
               {/* Analysis section */}
               {!result ? (
                 <div className="space-y-4">
-                  <button
-                    onClick={handleAnalyze}
-                    disabled={isAnalyzing}
-                    className="btn-primary w-full sm:w-auto mx-auto flex items-center justify-center space-x-2"
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        <span>Analyzing...</span>
-                      </>
-                    ) : (
-                      <span>Analyze</span>
-                    )}
-                  </button>
+                  <div className="flex justify-center">
+                    <button
+                      onClick={handleAnalyze}
+                      disabled={isAnalyzing}
+                      className="btn-primary flex items-center justify-center space-x-3 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:hover:scale-100"
+                    >
+                      {isAnalyzing ? (
+                        <>
+                          <Loader2 className="h-6 w-6 animate-spin" />
+                          <span>Analyzing...</span>
+                        </>
+                      ) : (
+                        <span>Analyze Item</span>
+                      )}
+                    </button>
+                  </div>
                   
-                  <button
-                    onClick={resetAnalysis}
-                    className="btn-secondary w-full sm:w-auto mx-auto"
-                  >
-                    Choose Different Image
-                  </button>
+                  <div className="flex justify-center">
+                    <button
+                      onClick={resetAnalysis}
+                      className="btn-secondary flex items-center justify-center space-x-3 px-6 py-3 font-medium rounded-lg hover:shadow-md transition-all duration-200"
+                    >
+                      <span>Choose Different Image</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -344,83 +419,182 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                       <p className="text-red-700 dark:text-red-300">{result.error}</p>
                     </div>
                   ) : (
-                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6 space-y-4">
-                      <div className="flex items-center justify-center space-x-2">
-                        <CheckCircle className="h-6 w-6 text-green-600" />
-                        <h3 className="text-lg font-semibold text-green-900 dark:text-green-100">
-                          Analysis Complete!
-                        </h3>
-                      </div>
-                      
-                      <div className="text-center space-y-2">
-                        <p className="text-xl font-bold text-gray-900 dark:text-white">
-                          {result.display_name}
-                        </p>
-                        <p className="text-gray-600 dark:text-gray-300">
-                          Category: {result.main_category}
-                        </p>
-                        <p className="text-green-600 dark:text-green-400 font-semibold">
-                          CO₂ Savings: {result.co2_saved}kg
-                        </p>
+                    <div className="space-y-6">
+                      {/* Main Classification Header */}
+                      <div 
+                        className="rounded-xl p-6 border-2 shadow-lg"
+                        style={{ 
+                          backgroundColor: result.color || '#10B981',
+                          borderColor: result.color || '#10B981',
+                          color: isLightColor(result.color) ? '#111827' : '#FFFFFF'
+                        }}
+                      >
+                        <div className="text-center space-y-4">
+                          <div className="flex items-center justify-center space-x-4">
+                            <div className="text-5xl bg-white/20 rounded-full p-3 backdrop-blur-sm">
+                              {result.icon || '♻️'}
+                            </div>
+                            <div>
+                              <h3 className="text-3xl font-bold mb-2">
+                                {result.display_name}
+                              </h3>
+                              <div className="flex items-center justify-center space-x-4 text-sm font-medium opacity-90">
+                                <span className="bg-white/20 px-3 py-1 rounded-full">{result.main_category}</span>
+                                <span className="bg-white/20 px-3 py-1 rounded-full">{result.confidence}% confident</span>
+                                <span className="bg-white/20 px-3 py-1 rounded-full">{result.weight}kg</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Environmental Impact */}
+                          <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 border border-white/30">
+                            <div className="flex items-center justify-center space-x-2 mb-3">
+                              <span className="text-2xl">🌱</span>
+                              <span className="text-lg font-bold">Environmental Impact</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-6">
+                              <div className="text-center">
+                                <p className="text-3xl font-bold">{result.co2_saved}kg</p>
+                                <p className="text-sm font-medium opacity-90">CO₂ Saved</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-3xl font-bold">{result.co2_rate}x</p>
+                                <p className="text-sm font-medium opacity-90">Impact Rate</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                          Disposal Instructions:
-                        </h4>
-                        <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                          {result.disposal_methods?.map((method, index) => (
-                            <li key={index} className="flex items-start space-x-2">
-                              <span className="text-green-600 mt-1">•</span>
-                              <span>{method}</span>
-                            </li>
-                          ))}
-                        </ul>
+                      {/* Item Properties */}
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className={`p-6 rounded-xl text-center border-2 shadow-md transition-all duration-200 hover:shadow-lg ${
+                          result.recyclable 
+                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 text-green-800 dark:text-green-200' 
+                            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-800 dark:text-red-200'
+                        }`}>
+                          <div className="text-3xl mb-3">{result.recyclable ? '♻️' : '❌'}</div>
+                          <div className="font-bold text-lg mb-1">Recyclable</div>
+                          <div className="text-sm font-medium opacity-90">{result.recyclable ? 'Yes' : 'No'}</div>
+                        </div>
+                        
+                        <div className={`p-6 rounded-xl text-center border-2 shadow-md transition-all duration-200 hover:shadow-lg ${
+                          result.donation_worthy 
+                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-200' 
+                            : 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200'
+                        }`}>
+                          <div className="text-3xl mb-3">{result.donation_worthy ? '💝' : '🚫'}</div>
+                          <div className="font-bold text-lg mb-1">Donatable</div>
+                          <div className="text-sm font-medium opacity-90">{result.donation_worthy ? 'Yes' : 'No'}</div>
+                        </div>
+                        
+                        <div className="p-6 rounded-xl text-center border-2 shadow-md transition-all duration-200 hover:shadow-lg bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700 text-purple-800 dark:text-purple-200">
+                          <div className="text-3xl mb-3">📦</div>
+                          <div className="font-bold text-lg mb-1">Category</div>
+                          <div className="text-sm font-medium opacity-90">{result.specific_category}</div>
+                        </div>
                       </div>
+
+                      {/* Disposal Methods */}
+                      {result.disposal_methods && result.disposal_methods.length > 0 && (
+                        <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-6">
+                          <h4 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center space-x-2">
+                            <span className="text-2xl">📋</span>
+                            <span className="text-lg">How to Dispose</span>
+                          </h4>
+                          <div className="grid gap-3">
+                            {result.disposal_methods.map((method, index) => (
+                              <div key={index} className="flex items-start space-x-3 p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg backdrop-blur-sm">
+                                <div className="flex-shrink-0 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                                  {index + 1}
+                                </div>
+                                <p className="text-gray-700 dark:text-gray-300 font-medium">
+                                  {method}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Nearby Locations */}
                       {result.suggestions && result.suggestions.length > 0 ? (
-                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                          <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center space-x-2">
-                            <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                            </svg>
-                            <span>Nearby Disposal Locations</span>
+                        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
+                          <h4 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center space-x-2">
+                            <span className="text-2xl">📍</span>
+                            <span className="text-lg">Nearby Locations ({result.suggestions.length})</span>
                           </h4>
-                          <div className="space-y-3">
+                          <div className="grid gap-4">
                             {result.suggestions.slice(0, 5).map((location, index) => (
-                              <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg">
-                                <div className="flex-1">
-                                  <p className="font-medium text-gray-900 dark:text-white text-sm">
-                                    {location.name}
-                                    {location.rating && (
-                                      <span className="ml-2 text-yellow-500 text-xs">
-                                        ⭐{location.rating}
+                              <div key={index} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-lg p-4 border border-white/50 dark:border-gray-700/50">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center space-x-2 mb-2">
+                                      <span className="text-lg">
+                                        {location.type === 'donate' ? '💝' : location.type === 'dropoff' ? '📦' : '🗑️'}
                                       </span>
-                                    )}
-                                  </p>
-                                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                                    {location.distance_km}km away • {location.type}
-                                  </p>
-                                  {location.address && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 line-clamp-1">
-                                      {location.address}
-                                    </p>
-                                  )}
+                                      <h5 className="font-bold text-gray-900 dark:text-white">
+                                        {location.name}
+                                      </h5>
+                                      {location.rating && (
+                                        <div className="flex items-center space-x-1 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full">
+                                          <span className="text-yellow-500 text-sm">⭐</span>
+                                          <span className="text-yellow-700 dark:text-yellow-300 text-sm font-medium">
+                                            {location.rating}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="space-y-1 text-sm">
+                                      <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400">
+                                        <span>📏</span>
+                                        <span className="font-medium">{location.distance_km}km away</span>
+                                        <span className="text-gray-400">•</span>
+                                        <span className="capitalize px-2 py-1 rounded-full text-xs font-medium" 
+                                              style={{
+                                                backgroundColor: location.type === 'donate' ? '#DBEAFE' : location.type === 'dropoff' ? '#FEF3C7' : '#FEE2E2',
+                                                color: location.type === 'donate' ? '#1E40AF' : location.type === 'dropoff' ? '#92400E' : '#DC2626'
+                                              }}>
+                                          {location.type}
+                                        </span>
+                                      </div>
+                                      
+                                      {location.address && (
+                                        <div className="flex items-start space-x-2 text-gray-500 dark:text-gray-500">
+                                          <span>📧</span>
+                                          <span className="line-clamp-2">{location.address}</span>
+                                        </div>
+                                      )}
+                                      
+                                      {location.source && (
+                                        <div className="flex items-center space-x-2 text-xs text-gray-400">
+                                          <span>ℹ️</span>
+                                          <span>Source: {location.source}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  <button
+                                    onClick={() => window.open(`https://maps.google.com/search/${encodeURIComponent(location.name)}/@${location.lat},${location.lon},15z`, '_blank')}
+                                    className="ml-4 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors flex items-center space-x-1 shadow-md"
+                                  >
+                                    <span>🗺️</span>
+                                    <span>Open Map</span>
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={() => window.open(`https://maps.google.com/search/${location.name}/@${location.lat},${location.lon},15z`, '_blank')}
-                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded bg-blue-100 hover:bg-blue-200 transition-colors"
-                                >
-                                  View Map
-                                </button>
                               </div>
                             ))}
                           </div>
                           
                           {/* Interactive Map */}
                           {userLocation && (
-                            <div className="mt-4 p-4 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                            <div className="mt-6 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 border border-white/50 dark:border-gray-700/50">
+                              <h5 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center space-x-2">
+                                <span className="text-lg">🗺️</span>
+                                <span>Interactive Map</span>
+                              </h5>
                               <MapComponent 
                                 userLocation={userLocation}
                                 locations={result.suggestions.slice(0, 5)}
@@ -429,27 +603,32 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                           )}
                         </div>
                       ) : (
-                        <div className="bg-gray-50 dark:bg-gray-900/20 rounded-lg p-4">
-                          <h4 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center space-x-2">
-                            <svg className="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                            </svg>
+                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/50 dark:to-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                          <h4 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center space-x-2">
+                            <span className="text-2xl">📍</span>
                             <span>Location Services Unavailable</span>
                           </h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Please search online for "{result.location_query}" in your area.
-                          </p>
+                          <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
+                            <p className="text-gray-600 dark:text-gray-400 mb-2">
+                              Search online for locations near you:
+                            </p>
+                            <div className="bg-gray-100 dark:bg-gray-700 rounded px-3 py-2 font-mono text-sm text-gray-800 dark:text-gray-200">
+                              "{result.location_query}"
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
                   )}
                   
-                  <button
-                    onClick={resetAnalysis}
-                    className="btn-primary w-full sm:w-auto mx-auto"
-                  >
-                    Analyze Another Item
-                  </button>
+                  <div className="flex justify-center">
+                    <button
+                      onClick={resetAnalysis}
+                      className="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 border-2 border-green-600 hover:border-green-700"
+                    >
+                      <span>Analyze Another Item</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
