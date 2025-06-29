@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Trash2, Recycle, AlertCircle, Search, Filter, Check, X, MapPin, 
   Package, Heart, ChevronDown, ChevronRight, RotateCcw, Trash, CheckCircle2,
-  Store, Zap, Car, Smartphone, Monitor, Sofa, Shirt, Apple, TreePine, ExternalLink
+  Store, Zap, Car, Smartphone, Monitor, Sofa, Shirt, Apple, TreePine, ExternalLink,
+  Target, ShieldCheck
 } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import * as MdIcons from 'react-icons/md';
 import { getUserClassificationsWithImages } from '../supabase_integration_with_images';
@@ -167,7 +169,8 @@ const HistoryTab = ({ user }) => {
       } else {
         toast.error('Failed to update completion.');
       }
-    } catch (error) {
+    } catch (err) {
+      console.error('Error toggling completion:', err);
       toast.error('Error toggling completion.');
     }
   };
@@ -217,14 +220,14 @@ const HistoryTab = ({ user }) => {
       return newCompleted;
     });
     try {
-      const { success, error } = await deleteClassification(itemId, user.id);
+      const { success } = await deleteClassification(itemId, user.id);
       if (!success) {
         toast.error('Failed to delete item.');
-        setClassifications(originalClassifications);
       } else {
         toast.success('Item deleted!');
       }
     } catch (err) {
+      console.error('Unexpected error deleting item:', err);
       toast.error('Unexpected error deleting item.');
       setClassifications(originalClassifications);
     }
@@ -405,7 +408,7 @@ const HistoryTab = ({ user }) => {
         <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-6 shadow-lg border border-purple-200/30 dark:border-purple-700/30 backdrop-blur-sm">
           <div className="space-y-4 text-center">
             <div className="p-3 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl shadow-lg w-fit mx-auto">
-              <Recycle className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+              <Target className="h-8 w-8 text-purple-600 dark:text-purple-400" />
             </div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
               Potential CO₂ Saved
@@ -419,10 +422,10 @@ const HistoryTab = ({ user }) => {
         <div className="bg-gradient-to-br from-teal-50 to-green-50 dark:from-teal-900/20 dark:to-green-900/20 rounded-2xl p-6 shadow-lg border border-teal-200/30 dark:border-teal-700/30 backdrop-blur-sm">
           <div className="space-y-4 text-center">
             <div className="p-3 bg-gradient-to-br from-teal-500/20 to-green-500/20 rounded-xl shadow-lg w-fit mx-auto">
-              <RotateCcw className="h-8 w-8 text-teal-600 dark:text-teal-400" />
+              <ShieldCheck className="h-8 w-8 text-teal-600 dark:text-teal-400" />
             </div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-              CO₂ Impact
+              Actual Impact
             </h3>
             <p className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-green-600 bg-clip-text text-transparent">
               {completedCO2.toFixed(1)}kg
@@ -440,8 +443,8 @@ const HistoryTab = ({ user }) => {
       >
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1 relative">
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
-              <Search className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm z-10 pointer-events-none">
+              <Search className="h-5 w-5 text-blue-500 dark:text-blue-400" />
             </div>
             <input
               type="text"
@@ -561,9 +564,15 @@ const HistoryTab = ({ user }) => {
                           </span>
                           {/* Location info */}
                           {group.items[0]?.location_suggestions?.[0] && (
-                            <span className="bg-gradient-to-r from-gray-500/20 to-slate-500/20 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-sm font-semibold border border-gray-200/30 flex items-center space-x-1">
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openInMaps(group.items[0]);
+                              }}
+                              className="bg-gradient-to-r from-gray-500/20 to-slate-500/20 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-sm font-semibold border border-gray-200/30 flex items-center space-x-1 cursor-pointer hover:bg-gray-600/10"
+                            >
                               <MapPin className="h-3 w-3" />
-                              <span>{group.items[0].location_suggestions[0].address || group.items[0].location_suggestions[0].name}</span>
+                              <span>{group.items[0].location_suggestions[0].address || group.items[0].location_suggestions[0].name || 'Address not available'}</span>
                             </span>
                           )}
                         </div>
@@ -581,22 +590,8 @@ const HistoryTab = ({ user }) => {
                         title="Complete all items in this group"
                       >
                         <CheckCircle2 className="h-4 w-4" />
-                        <span className="text-sm font-medium">All</span>
+                        <span className="text-sm font-medium">Complete All</span>
                       </button>
-                      
-                      {/* Open in Maps Button */}
-                      {group.items[0]?.location_suggestions?.[0] && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openInMaps(group.items[0]);
-                          }}
-                          className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200"
-                          title="Open location in maps"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </button>
-                      )}
                       
                       <div className={`p-2 rounded-lg transition-all duration-300 ${
                         expandedGroups.has(groupKey) ? 'bg-gray-200/50 dark:bg-gray-700/50 rotate-180' : 'bg-gray-100/50 dark:bg-gray-800/50'
