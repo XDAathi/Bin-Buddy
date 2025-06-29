@@ -188,37 +188,24 @@ const HomeTab = ({ onClassificationComplete, user }) => {
     return <MdIcons.MdRecycling size={size} color={color} />;
   };
 
-  // Helper function to determine if a color is light or dark
-  const isLightColor = (color) => {
-    if (!color) return false; // Default green is dark
-    
-    try {
-      // Handle different color formats
-      let hex = color;
-      if (color.startsWith('#')) {
-        hex = color.substring(1);
-      }
-      
-      // Ensure we have a valid 6-character hex
-      if (hex.length === 3) {
-        hex = hex.split('').map(char => char + char).join('');
-      }
-      
-      if (hex.length !== 6) return false;
-      
-      // Convert hex to RGB
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      
-      // Calculate luminance using standard formula
-      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      return luminance > 0.6; // Light if luminance > 0.6 (adjusted threshold)
-    } catch (error) {
-      console.warn('Error parsing color:', color, error);
-      return false; // Default to dark text on unknown colors
+  // Helper function to format category names (camelCase to proper case, underscores to spaces)
+  const formatCategoryName = (categoryName) => {
+    if (!categoryName || typeof categoryName !== 'string') {
+      return 'Unknown';
     }
+    
+    return categoryName
+      // Replace underscores with spaces
+      .replace(/_/g, ' ')
+      // Add space before capital letters (camelCase to words)
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      // Capitalize first letter of each word
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   };
+
+
   const [selectedImage, setSelectedImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
@@ -484,7 +471,6 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                                 {result.display_name}
                               </h3>
                               <div className="flex items-center justify-center space-x-4 text-sm font-medium opacity-90">
-                                <span className="bg-white/20 px-3 py-1 rounded-full">{result.main_category}</span>
                                 <span className="bg-white/20 px-3 py-1 rounded-full">{result.weight}kg</span>
                               </div>
                             </div>
@@ -537,8 +523,10 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                         
                         <div className="p-6 rounded-xl text-center border-2 shadow-md transition-all duration-200 hover:shadow-lg bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700 text-purple-800 dark:text-purple-200">
                           <div className="text-3xl mb-3">📦</div>
-                          <div className="font-bold text-lg mb-1">Category</div>
-                          <div className="text-sm font-medium opacity-90">{result.specific_category}</div>
+                          <div className="space-y-2">
+                            <div className="font-bold text-xl">{formatCategoryName(result.main_category)}</div>
+                            <div className="text-sm font-medium opacity-75">{formatCategoryName(result.specific_category)}</div>
+                          </div>
                         </div>
                       </div>
 
