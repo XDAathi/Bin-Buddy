@@ -42,6 +42,9 @@ const FootPrintTab = ({ user }) => {
   const [previousAchievements, setPreviousAchievements] = useState([]);
   const [allClassifications, setAllClassifications] = useState([]);
 
+  // Derived count of items that are not yet completed (matches History "Pending Disposal")
+  const completedItemsCount = allClassifications.filter(item => item.completed).length;
+
   // More detailed and engaging achievement system
   const achievementSystem = [
     { id: 1, title: 'First Step', description: 'Analyzed your first item', condition: (stats) => stats.totalItems > 0, icon: Target },
@@ -462,8 +465,8 @@ const FootPrintTab = ({ user }) => {
               <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-4">
                 <BarChart3 className="h-8 w-8 text-blue-500" />
               </div>
-              <p className="text-4xl font-bold text-blue-500">{stats.totalItems}</p>
-              <p className="text-lg text-gray-600 dark:text-gray-400">Items Analyzed</p>
+              <p className="text-4xl font-bold text-blue-500">{completedItemsCount}</p>
+              <p className="text-lg text-gray-600 dark:text-gray-400">Completed Items</p>
             </motion.div>
 
             <motion.div 
