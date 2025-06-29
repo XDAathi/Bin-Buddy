@@ -223,8 +223,27 @@ const HomeTab = ({ onClassificationComplete, user }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const videoRef = useRef(null);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+
+  const openDesktopCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setCameraStream(stream);
+      setShowCameraModal(true);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+      }, 100);
+    } catch (err) {
+      alert('Could not access camera: ' + err.message);
+    }
+  };
 
   const handleImageSelect = (file) => {
     if (file && file.type.startsWith('image/')) {
@@ -368,7 +387,15 @@ const HomeTab = ({ onClassificationComplete, user }) => {
               {/* Enhanced Upload buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                                   <button
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={() => {
+                      if (window.innerWidth > 768) {
+                        // Desktop: open camera modal (you must have openDesktopCamera defined in your component)
+                        openDesktopCamera();
+                      } else {
+                        // Mobile: open native camera/file picker
+                        cameraInputRef.current?.click();
+                      }
+                    }}
                     className="btn-primary flex items-center justify-center space-x-3 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                   >
                     <Camera className="h-6 w-6" />
@@ -407,7 +434,7 @@ const HomeTab = ({ onClassificationComplete, user }) => {
               {/* Analysis section */}
               {!result ? (
                 <div className="space-y-4">
-                  <div className="flex justify-center">
+                  <div className="flex justify-center gap-4">
                     <button
                       onClick={handleAnalyze}
                       disabled={isAnalyzing}
@@ -422,9 +449,6 @@ const HomeTab = ({ onClassificationComplete, user }) => {
                         <span>Analyze Item</span>
                       )}
                     </button>
-                  </div>
-                  
-                  <div className="flex justify-center">
                     <button
                       onClick={resetAnalysis}
                       className="btn-secondary flex items-center justify-center space-x-3 px-6 py-3 font-medium rounded-lg hover:shadow-md transition-all duration-200"
@@ -754,6 +778,53 @@ const HomeTab = ({ onClassificationComplete, user }) => {
           </div>
         </div>
       </div>
+
+      {/* Camera Modal (for desktop) */}
+      {showCameraModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+          <div className="bg-white rounded-xl p-6 shadow-xl flex flex-col items-center max-w-full"
+               style={{ width: 500, maxWidth: '90vw' }}>
+            <video ref={videoRef} className="rounded-lg mb-4" autoPlay playsInline style={{ width: 400, maxWidth: '80vw' }} />
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  // Capture photo from video stream
+                  if (!videoRef.current) return;
+                  const video = videoRef.current;
+                  const canvas = document.createElement('canvas');
+                  canvas.width = video.videoWidth;
+                  canvas.height = video.videoHeight;
+                  const ctx = canvas.getContext('2d');
+                  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                  canvas.toBlob(blob => {
+                    if (blob) {
+                      const file = new File([blob], 'captured.jpg', { type: 'image/jpeg' });
+                      handleImageSelect(file);
+                    }
+                    // Stop camera and close modal
+                    if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+                    setShowCameraModal(false);
+                    setCameraStream(null);
+                  }, 'image/jpeg');
+                }}
+                className="btn-primary px-6 py-2 rounded-lg font-semibold"
+              >
+                Capture
+              </button>
+              <button
+                onClick={() => {
+                  if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+                  setShowCameraModal(false);
+                  setCameraStream(null);
+                }}
+                className="btn-secondary px-6 py-2 rounded-lg font-semibold"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
