@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Recycle, Home, History, BarChart3, User, Moon, Sun, ChevronDown } from 'lucide-react';
+import { Home, History, BarChart3, User, Moon, Sun, ChevronDown } from 'lucide-react';
+import BinBuddyLogo from './BinBuddyLogo';
 
-const Navigation = ({ activeTab, setActiveTab, darkMode, setDarkMode, user, signOut }) => {
+const Navigation = ({ activeTab, setActiveTab, darkMode, setDarkMode, user, signOut, onLogoClick }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const tabs = [
@@ -12,15 +13,15 @@ const Navigation = ({ activeTab, setActiveTab, darkMode, setDarkMode, user, sign
 
   return (
     <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-lg border-b border-gray-200 dark:border-gray-700 backdrop-blur-md bg-opacity-95 dark:bg-opacity-95">
-              <div className="w-full px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex items-center space-x-2">
-            <Recycle className="h-8 w-8 text-green-eco" />
-            <span className="text-xl font-bold text-gray-900 dark:text-white">
+          <button onClick={onLogoClick} className="flex items-center space-x-2 group focus:outline-none">
+            <BinBuddyLogo size={32} />
+            <span className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-green-eco transition-colors">
               Bin Buddy
             </span>
-          </div>
+          </button>
 
           {/* Navigation tabs */}
           <div className="flex space-x-8">
