@@ -1,195 +1,58 @@
-# Bin Buddy 🗂️♻️
+# Bin Buddy
 
-AI-powered waste classification for a sustainable future. Bin Buddy helps users identify and properly dispose of waste items using computer vision and machine learning.
+Bin Buddy is a waste management tool built in under 24 hours at Solution Hacks to address the United Nations Sustainable Development Goals. It helps individuals reduce their environmental impact by providing smart insights, personalized tips, and local drop-off locations for waste disposal.
 
-## Features
+[🎥 Watch Demo Video](https://youtu.be/X4nF98WhUKg)
+[🔗 View on Devpost](https://devpost.com/software/bin-buddy-ld8uak?ref_content=my-projects-tab&ref_feature=my_projects)
 
-- 📸 **Image Classification**: Upload or capture photos of waste items for AI-powered identification
-- 🌱 **Environmental Impact**: Track CO₂ savings and environmental impact
-- 📊 **Analytics Dashboard**: View your waste classification history and footprint
-- 🏆 **Achievements**: Unlock achievements for your eco-friendly actions
-- 🌙 **Dark Mode**: Full dark mode support
-- 📱 **Responsive Design**: Works on desktop and mobile devices
 
-## Tech Stack
+# Features
+♻️ Waste Type Detection – Identify types of waste and learn the best disposal methods
+📍 Local Drop-Off Finder – Locate nearby recycling centers and waste facilities
+📊 Sustainability Insights – Get personalized data to reduce your ecological footprint
+📱 Mobile-Friendly – Designed with accessibility and ease-of-use in mind
+🌐 Cloud-Powered – Real-time responses using backend APIs
 
-### Frontend
-- **React 19** - Modern React with hooks
-- **Tailwind CSS** - Utility-first CSS framework
-- **Lucide React** - Beautiful icons
-- **Vite** - Fast build tool and dev server
+# 📷 Preview
+Smart, simple, and sustainable waste tracking at your fingertips.
+![Screenshot 2025-06-29 074901](https://github.com/user-attachments/assets/a6ef738b-ec4c-43b5-93a3-7cfa7864498b)
+![Screenshot 2025-06-29 074920](https://github.com/user-attachments/assets/00f6dbc8-32b9-4834-b67e-9e5434805ee6)
+![Screenshot 2025-06-29 074929](https://github.com/user-attachments/assets/e626fa3c-df80-43e0-820b-df58ea8ff270)
+![Screenshot 2025-06-29 074951](https://github.com/user-attachments/assets/be165b57-1ff8-4ff1-92d0-03c42f1f5a6b)
+![Screenshot![Screenshot 2025-06-29 075105](https://github.com/user-attachments/assets/38dd083c-ca9c-42bb-91ff-242bce5a4f6f)
 
-### Backend
-- **Python Flask** - Web framework
-- **Google Gemini AI** - Computer vision for waste classification
-- **Supabase** - Database and authentication
-- **Image processing** - PIL for image handling
+# 🛠️ Tech Stack
+Frontend: React.js + Tailwind CSS
+Backend: Node.js + Express
+Database: Supabase (PostgreSQL)
+![Frontend (3)](https://github.com/user-attachments/assets/1fcd5bc0-87c0-494a-9121-2ebd5f43040e)
 
-### Database
-- **PostgreSQL** (via Supabase) - User data, classifications, and analytics
-- **Supabase Storage** - Image storage with user isolation
 
-## Setup Instructions
+API Integration: Google Maps API, OpenAI API
+Hosting: Vercel
 
-### Prerequisites
-- Node.js 18+ and npm
-- Python 3.8+
-- Supabase account
-- Google Gemini API key
+# ✨ How to Use
+Upload an image or input waste information manually
+Get categorized results with disposal recommendations
+View drop-off locations near you
+Receive sustainability tips personalized to your waste habits
 
-### Backend Setup
+# 🧪 Example Use Cases
+Upload a photo of an old battery – get info on safe disposal & nearby drop-off
+Input “old clothing” – get links to donation centers & environmental stats
 
-1. **Install Python dependencies**:
-```bash
-cd backend
-pip install -r requirements.txt
-```
 
-2. **Set up environment variables**:
-Create a `.env` file in the `backend` directory:
-```bash
-GEMINI_API_KEY=your_gemini_api_key
-SUPABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_key
-```
+# 📄 License
+This project is licensed under the MIT License – see the LICENSE file for details.
 
-3. **Set up Supabase database**:
-   - Create a new Supabase project
-   - Run the SQL schema in `supabase_schema_with_images.sql`
-   - Create a storage bucket named `waste-images`
-   - Enable RLS (Row Level Security) policies
+# 🙌 Acknowledgments
+Google Developer Groups at TMU for hosting Solution Hacks
+Supabase for backend services
+OpenAI for enabling intelligent classification
+Everyone who contributed to this project or tested it!
 
-4. **Start the Flask server**:
-```bash
-python app.py
-```
-
-### Frontend Setup
-
-1. **Install dependencies**:
-```bash
-cd frontend
-npm install
-```
-
-2. **Set up environment variables**:
-Create a `.env` file in the `frontend` directory:
-```bash
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_KEY=your_supabase_anon_key
-```
-
-3. **Start the development server**:
-```bash
-npm run dev
-```
-
-## Usage
-
-1. **Sign up/Login**: Use Google OAuth or email/password authentication
-2. **Upload Image**: Take a photo or upload an image of a waste item
-3. **Get Classification**: AI analyzes the item and provides:
-   - Item identification
-   - Disposal instructions
-   - CO₂ impact calculation
-   - Nearby disposal locations
-4. **Track Progress**: View your history and environmental impact in the dashboard
-
-## Project Structure
-
-```
-bin-buddy/
-├── backend/
-│   ├── app.py                 # Flask server
-│   └── requirements.txt       # Python dependencies
-├── frontend/
-│   ├── src/
-│   │   ├── components/        # React components
-│   │   │   ├── Navigation.jsx
-│   │   │   ├── HomeTab.jsx
-│   │   │   ├── HistoryTab.jsx
-│   │   │   └── FootPrintTab.jsx
-│   │   ├── utils/
-│   │   │   └── supabase-integration.js
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── package.json
-│   └── tailwind.config.js
-├── supabase_schema_with_images.sql
-└── README.md
-```
-
-## API Endpoints
-
-- `POST /api/classify` - Classify waste item from image
-- `GET /api/health` - Health check endpoint
-- `GET /api/icons` - Get available icon sets
-
-## Database Schema
-
-### Main Tables
-- `users` - User profiles and aggregate stats
-- `waste_images` - Image metadata and storage paths
-- `waste_classifications` - Classification results and analysis
-- `disposal_locations` - Nearby disposal/recycling locations
-- `daily_analytics` - Aggregated daily statistics
-
-## Development
-
-### Available Scripts
-
-**Frontend:**
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-
-**Backend:**
-- `python app.py` - Start Flask development server
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## Environment Variables
-
-### Backend (.env)
-```
-GEMINI_API_KEY=your_gemini_api_key
-SUPABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_key
-```
-
-### Frontend (.env)
-```
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_KEY=your_supabase_anon_key
-```
-
-## Deployment
-
-### Frontend (Vercel/Netlify)
-1. Build the frontend: `npm run build`
-2. Deploy the `dist` folder
-3. Set environment variables in your hosting platform
-
-### Backend (Railway/Heroku)
-1. Push to your git repository
-2. Connect to your hosting platform
-3. Set environment variables
-4. Deploy
-
-## License
-
-MIT License - see LICENSE file for details
-
-## Support
-
-For support, please open an issue on GitHub or contact the development team.
-
----
-
-Built with ♻️ for a sustainable future
+# 🚧 Roadmap
+ Improve AI accuracy for image-based classification
+ Gamified recycling tips & streaks
+ Public community waste leaderboards
+ iOS / Android app version
