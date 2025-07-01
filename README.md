@@ -16,9 +16,13 @@ Bin Buddy is a waste management tool built in under 24 hours at Solution Hacks t
 # 📷 Preview
 Smart, simple, and sustainable waste tracking at your fingertips.
 ![Screenshot 2025-06-29 074901](https://github.com/user-attachments/assets/a6ef738b-ec4c-43b5-93a3-7cfa7864498b)
+
 ![Screenshot 2025-06-29 074920](https://github.com/user-attachments/assets/00f6dbc8-32b9-4834-b67e-9e5434805ee6)
+
 ![Screenshot 2025-06-29 074929](https://github.com/user-attachments/assets/e626fa3c-df80-43e0-820b-df58ea8ff270)
+
 ![Screenshot 2025-06-29 074951](https://github.com/user-attachments/assets/be165b57-1ff8-4ff1-92d0-03c42f1f5a6b)
+
 ![Screenshot 2025-06-29 075105](https://github.com/user-attachments/assets/38dd083c-ca9c-42bb-91ff-242bce5a4f6f)
 
 # 🛠️ Tech Stack
